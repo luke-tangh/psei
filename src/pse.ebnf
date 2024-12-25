@@ -1,0 +1,8 @@
+CompUnit  ::= FuncDef;
+
+FuncDef   ::= FUNCTION IDENTIFIER "(" ")" RETURNS FuncType Block ENDFUNCTION;
+FuncType  ::= "INTEGER";
+
+Block     ::= Stmt;
+Stmt      ::= "RETURN" Number;
+Number    ::= INT_CONST;

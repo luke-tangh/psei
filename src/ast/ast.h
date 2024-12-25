@@ -1,6 +1,7 @@
 #ifndef AST_H
 #define AST_H
 
+#include <iostream>
 #include <string>
 #include <memory>
 
@@ -8,30 +9,76 @@
 class ASTNode {
 public:
     virtual ~ASTNode() = default;
-    virtual int evaluate() = 0;
+    virtual void dump() const = 0;
+    //virtual int evaluate() = 0;
 };
 
-// Node for integer literals
-class IntegerNode : public ASTNode {
-    int value;
+class CompUnitNode : public ASTNode {
 public:
-    explicit IntegerNode(int value) : value(value) {}
-    int evaluate() override { return value; }
+    std::unique_ptr<ASTNode> func_def;
+
+    void dump() const override {
+        std::cout << "CompUnitNode { ";
+        func_def->dump();
+        std::cout << " }";
+    }
 };
 
-// Node for binary operations
-class BinaryOpNode : public ASTNode {
-    std::string op;
-    std::unique_ptr<ASTNode> left;
-    std::unique_ptr<ASTNode> right;
+class FuncDefNode : public ASTNode {
 public:
-    BinaryOpNode(
-        const std::string& op, 
-        std::unique_ptr<ASTNode> left, 
-        std::unique_ptr<ASTNode> right
-    ) : op(op), left(std::move(left)), right(std::move(right)) {}
+    std::string identifier;
+    std::unique_ptr<ASTNode> func_type;
+    std::unique_ptr<ASTNode> block;
 
-    int evaluate() override;
+    void dump() const override {
+        std::cout << "FuncDefNode { ";
+        func_type->dump();
+        std::cout << ", " << identifier << ", ";
+        block->dump();
+        std::cout << " }";
+    }
+};
+
+class FuncTypeNode : public ASTNode {
+public:
+    std::string type;
+
+    void dump() const override {
+        std::cout << "FuncTypeNode { ";
+        std::cout << type;
+        std::cout << " }";
+    }
+};
+
+class BlockNode : public ASTNode {
+public:
+    std::unique_ptr<ASTNode> stmt;
+
+    void dump() const override {
+        std::cout << "BlockNode { ";
+        stmt->dump();
+        std::cout << " }";
+    }
+};
+
+class StmtNode : public ASTNode {
+public:
+    std::unique_ptr<ASTNode> number;
+
+    void dump() const override {
+        std::cout << "StmtNode { ";
+        number->dump();
+        std::cout << " }";
+    }
+};
+
+class NumberNode : public ASTNode {
+public:
+    int32_t i32;
+
+    void dump() const override {
+        std::cout << i32;
+    }
 };
 
 #endif
