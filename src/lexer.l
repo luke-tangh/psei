@@ -19,6 +19,7 @@ WhiteSpace    [ \t\n\r]*
 LineComment   "//".*
 
 /* identifier */
+String        \"([^\"]*)\"
 Identifier    [a-zA-Z_][a-zA-Z0-9_]*
 
 /* int repr */
@@ -60,8 +61,9 @@ Hexadecimal   0[xX][0-9a-fA-F]+
 "FUNCTION"      { return FUNCTION; }
 "ENDFUNCTION"   { return ENDFUNCTION; }
 
-
 {Identifier}    { yylval.str_val = new string(yytext); return IDENTIFIER; }
+
+{String}        { yylval.str_val = new std::string(yytext + 1, yyleng - 2); return STR_CONST; }
 
 {Decimal}       { yylval.int_val = strtol(yytext, nullptr, 0); return INT_CONST; }
 {Octal}         { yylval.int_val = strtol(yytext, nullptr, 0); return INT_CONST; }

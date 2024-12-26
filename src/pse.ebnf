@@ -1,32 +1,35 @@
-CompUnit  ::= FuncDef;
+CompUnit      ::= FuncDef;
+
+Number        ::= INT_CONST;
+String        ::= "\"" STR_CONST "\"";
 
 (* Const & Variable *)
 Decl          ::= ConstDecl | VarDecl;
 BType         ::= "INTEGER";
 ConstDecl     ::= "CONSTANT" IDENTIFIER "=" ConstInitVal;
-ConstInitVal  ::= ConstExp;
+ConstInitVal  ::= ConstExp | ConstStr;
 VarDecl       ::= "DECLARE" IDENTIFIER ":" BType;
+ConstExp      ::= Exp;
+ConstStr      ::= String;
 
 (* Function *)
-FuncDef     ::= FUNCTION IDENTIFIER "(" ")" RETURNS FuncType Block ENDFUNCTION;
-FuncType    ::= "INTEGER";
+FuncDef       ::= FUNCTION IDENTIFIER "(" ")" RETURNS FuncType Block ENDFUNCTION;
+FuncType      ::= "INTEGER";
 
-Block       ::= { BlockItem };
-BlockItem   ::= Decl | Stmt;
-Stmt        ::= LVal "=" Exp 
+Block         ::= { BlockItem };
+BlockItem     ::= Decl | Stmt;
+Stmt          ::= LVal "=" Exp 
               | "RETURN" Exp;
 
 (* Expression *)
-Exp         ::= LOrExp;
-LVal        ::= IDENT;
-PrimaryExp  ::= "(" Exp ")" | Number;
-Number      ::= INT_CONST;
-UnaryExp    ::= PrimaryExp | UnaryOp UnaryExp;
-UnaryOp     ::= "+" | "-" | "NOT";
-MulExp      ::= UnaryExp | MulExp ("*" | "/" | "DIV" | "MOD") UnaryExp;
-AddExp      ::= MulExp | AddExp ("+" | "-") MulExp;
-RelExp      ::= AddExp | RelExp ("<" | ">" | "<=" | ">=") AddExp;
-EqExp       ::= RelExp | EqExp ("=" | "<>") RelExp;
-LAndExp     ::= EqExp | LAndExp "AND" EqExp;
-LOrExp      ::= LAndExp | LOrExp "OR" LAndExp;
-ConstExp    ::= Exp;
+Exp           ::= LOrExp;
+LVal          ::= IDENTIFIER;
+PrimaryExp    ::= "(" Exp ")" | Number;
+UnaryExp      ::= PrimaryExp | UnaryOp UnaryExp;
+UnaryOp       ::= "+" | "-" | "NOT";
+MulExp        ::= UnaryExp | MulExp ("*" | "/" | "DIV" | "MOD") UnaryExp;
+AddExp        ::= MulExp | AddExp ("+" | "-") MulExp;
+RelExp        ::= AddExp | RelExp ("<" | ">" | "<=" | ">=") AddExp;
+EqExp         ::= RelExp | EqExp ("=" | "<>") RelExp;
+LAndExp       ::= EqExp | LAndExp "AND" EqExp;
+LOrExp        ::= LAndExp | LOrExp "OR" LAndExp;

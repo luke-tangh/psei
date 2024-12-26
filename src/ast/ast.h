@@ -32,6 +32,28 @@ public:
     }
 };
 
+class NumberNode : public ASTBase {
+public:
+    int32_t i32;
+
+    void dump() const override {
+        //std::cout << "NumberNode { ";
+        std::cout << i32;
+        //std::cout << " }";
+    }
+};
+
+class StringNode : public ASTBase {
+public:
+    std::string str;
+
+    void dump() const override {
+        //std::cout << "StringNode { ";
+        std::cout << "\"" << str << "\"";
+        //std::cout << " }";
+    }
+};
+
 class DeclNode : public ASTBase {
 public:
     std::unique_ptr<ASTBase> decl;
@@ -88,6 +110,28 @@ public:
         std::cout << identifier << ", ";
         btype->dump();
         std::cout << " }";
+    }
+};
+
+class ConstExpNode : public ASTBase {
+public:
+    std::unique_ptr<ASTBase> expr;
+
+    void dump() const override {
+        //std::cout << "ConstExpNode { ";
+        expr->dump();
+        //std::cout << " }";
+    }
+};
+
+class ConstStrNode : public ASTBase {
+public:
+    std::unique_ptr<ASTBase> str;
+
+    void dump() const override {
+        //std::cout << "ConstExpNode { ";
+        str->dump();
+        //std::cout << " }";
     }
 };
 
@@ -196,17 +240,6 @@ public:
     void dump() const override {
         //std::cout << "PrimaryExpNode { ";
         expr->dump();
-        //std::cout << " }";
-    }
-};
-
-class NumberNode : public ASTBase {
-public:
-    int32_t i32;
-
-    void dump() const override {
-        //std::cout << "NumberNode { ";
-        std::cout << i32;
         //std::cout << " }";
     }
 };
@@ -376,17 +409,6 @@ public:
         std::cout << ", ";
         right->dump();
         std::cout << " }";
-    }
-};
-
-class ConstExpNode : public ASTBase {
-public:
-    std::unique_ptr<ASTBase> expr;
-
-    void dump() const override {
-        //std::cout << "ConstExpNode { ";
-        expr->dump();
-        //std::cout << " }";
     }
 };
 

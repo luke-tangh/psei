@@ -34,13 +34,13 @@ using namespace std;
 %token LBRACE RBRACE ADD SUB MUL DIV INTDIV MOD
 %token LT GT LEQ GEQ EQ NEQ AND OR COL
 
-%token <str_val> IDENTIFIER
+%token <str_val> STR_CONST IDENTIFIER
 %token <int_val> INT_CONST
 
-%type <ast_val> Number
-%type <ast_val> Decl BType ConstDecl ConstInitVal VarDecl
+%type <ast_val> Number String
+%type <ast_val> Decl BType ConstDecl ConstInitVal VarDecl ConstExp ConstStr
 %type <ast_val> FuncDef FuncType Block BlockItem Stmt LVal 
-%type <ast_val> Exp PrimaryExp UnaryExp UnaryOp MulExp AddExp RelExp EqExp LAndExp LOrExp ConstExp
+%type <ast_val> Exp PrimaryExp UnaryExp UnaryOp MulExp AddExp RelExp EqExp LAndExp LOrExp 
 
 %type <vec_val> BlockItems
 
@@ -51,6 +51,22 @@ CompUnit
         auto comp_unit = make_unique<CompUnitNode>();
         comp_unit->func_def = unique_ptr<ASTBase>($1);
         ast = move(comp_unit);
+    }
+    ;
+
+Number
+    : INT_CONST {
+        auto ast = new NumberNode();
+        ast->i32 = (int)($1);
+        $$ = ast;
+    }
+    ;
+
+String
+    : STR_CONST {
+        auto ast = new StringNode();
+        ast->str = *unique_ptr<string>($1);
+        $$ = ast;
     }
     ;
 
@@ -90,6 +106,11 @@ ConstInitVal
         ast->val = unique_ptr<ASTBase>($1);
         $$ = ast;
     }
+    | ConstStr {
+        auto ast = new ConstInitValNode();
+        ast->val = unique_ptr<ASTBase>($1);
+        $$ = ast;
+    }
     ;
 
 VarDecl
@@ -97,6 +118,22 @@ VarDecl
         auto ast = new VarDeclNode();
         ast->identifier = *unique_ptr<string>($2);
         ast->btype = unique_ptr<ASTBase>($4);
+        $$ = ast;
+    }
+    ;
+
+ConstExp
+    : Exp {
+        auto ast = new ConstExpNode();
+        ast->expr = unique_ptr<ASTBase>($1);
+        $$ = ast;
+    }
+    ;
+
+ConstStr
+    : String {
+        auto ast = new ConstExpNode();
+        ast->expr = unique_ptr<ASTBase>($1);
         $$ = ast;
     }
     ;
@@ -194,14 +231,6 @@ PrimaryExp
     | Number {
         auto ast = new PrimaryExpNode();
         ast->expr = unique_ptr<ASTBase>($1);
-        $$ = ast;
-    }
-    ;
-
-Number
-    : INT_CONST {
-        auto ast = new NumberNode();
-        ast->i32 = (int)($1);
         $$ = ast;
     }
     ;
@@ -380,14 +409,6 @@ LOrExp
         ast->op = "OR";
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
-        $$ = ast;
-    }
-    ;
-
-ConstExp
-    : Exp {
-        auto ast = new ConstExpNode();
-        ast->expr = unique_ptr<ASTBase>($1);
         $$ = ast;
     }
     ;
