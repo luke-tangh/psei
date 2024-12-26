@@ -1,14 +1,24 @@
 CompUnit  ::= FuncDef;
 
+(* Const & Variable *)
+Decl          ::= ConstDecl | VarDecl;
+BType         ::= "INTEGER";
+ConstDecl     ::= "CONSTANT" IDENTIFIER "=" ConstInitVal;
+ConstInitVal  ::= ConstExp;
+VarDecl       ::= "DECLARE" IDENTIFIER ":" BType;
+
 (* Function *)
 FuncDef     ::= FUNCTION IDENTIFIER "(" ")" RETURNS FuncType Block ENDFUNCTION;
 FuncType    ::= "INTEGER";
-    
-Block       ::= Stmt;
-Stmt        ::= "RETURN" Exp;
+
+Block       ::= { BlockItem };
+BlockItem   ::= Decl | Stmt;
+Stmt        ::= LVal "=" Exp 
+              | "RETURN" Exp;
 
 (* Expression *)
 Exp         ::= LOrExp;
+LVal        ::= IDENT;
 PrimaryExp  ::= "(" Exp ")" | Number;
 Number      ::= INT_CONST;
 UnaryExp    ::= PrimaryExp | UnaryOp UnaryExp;
@@ -19,3 +29,4 @@ RelExp      ::= AddExp | RelExp ("<" | ">" | "<=" | ">=") AddExp;
 EqExp       ::= RelExp | EqExp ("=" | "<>") RelExp;
 LAndExp     ::= EqExp | LAndExp "AND" EqExp;
 LOrExp      ::= LAndExp | LOrExp "OR" LAndExp;
+ConstExp    ::= Exp;

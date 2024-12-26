@@ -31,6 +31,8 @@ Hexadecimal   0[xX][0-9a-fA-F]+
 {WhiteSpace}    { /* Ignore */ }
 {LineComment}   { /* Ignore */ }
 
+"("             { return LBRACE; }
+")"             { return RBRACE; }
 "+"             { return ADD; }
 "-"             { return SUB; }
 "NOT"           { return NOT; }
@@ -46,8 +48,12 @@ Hexadecimal   0[xX][0-9a-fA-F]+
 "<>"            { return NEQ; }
 "AND"           { return AND; }
 "OR"            { return OR; }
+":"             { return COL; }
 
 "INTEGER"       { return INTEGER; }
+
+"CONSTANT"      { return CONSTANT; }
+"DECLARE"       { return DECLARE; }
 
 "RETURN"        { return RETURN; }
 "RETURNS"       { return RETURNS; }

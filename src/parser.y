@@ -24,19 +24,25 @@ using namespace std;
     int int_val;
     std::string *str_val;
     ASTBase *ast_val;
+    std::vector<std::unique_ptr<ASTBase>> *vec_val;
 }
 
 %token INTEGER
+%token DECLARE CONSTANT
 %token RETURN RETURNS FUNCTION ENDFUNCTION
 %token PLUS MINUS NOT
-%token ADD SUB MUL DIV INTDIV MOD
-%token LT GT LEQ GEQ EQ NEQ AND OR
+%token LBRACE RBRACE ADD SUB MUL DIV INTDIV MOD
+%token LT GT LEQ GEQ EQ NEQ AND OR COL
 
 %token <str_val> IDENTIFIER
 %token <int_val> INT_CONST
 
-%type <ast_val> FuncDef FuncType Block Stmt
-%type <ast_val> Exp PrimaryExp Number UnaryExp UnaryOp MulExp AddExp RelExp EqExp LAndExp LOrExp
+%type <ast_val> Number
+%type <ast_val> Decl BType ConstDecl ConstInitVal VarDecl
+%type <ast_val> FuncDef FuncType Block BlockItem Stmt LVal 
+%type <ast_val> Exp PrimaryExp UnaryExp UnaryOp MulExp AddExp RelExp EqExp LAndExp LOrExp ConstExp
+
+%type <vec_val> BlockItems
 
 %%
 
@@ -48,8 +54,55 @@ CompUnit
     }
     ;
 
+Decl
+    : ConstDecl {
+        auto ast = new DeclNode();
+        ast->decl = unique_ptr<ASTBase>($1);
+        $$ = ast;
+    }
+    | VarDecl {
+        auto ast = new DeclNode();
+        ast->decl = unique_ptr<ASTBase>($1);
+        $$ = ast;
+    }
+    ;
+
+BType
+    : INTEGER {
+        auto ast = new BTypeNode();
+        ast->type = "INTEGER";
+        $$ = ast;
+    }
+    ;
+
+ConstDecl
+    : CONSTANT IDENTIFIER EQ ConstInitVal {
+        auto ast = new ConstDeclNode();
+        ast->identifier = *unique_ptr<string>($2);
+        ast->val = unique_ptr<ASTBase>($4);
+        $$ = ast;
+    }
+    ;
+
+ConstInitVal
+    : ConstExp {
+        auto ast = new ConstInitValNode();
+        ast->val = unique_ptr<ASTBase>($1);
+        $$ = ast;
+    }
+    ;
+
+VarDecl
+    : DECLARE IDENTIFIER COL BType {
+        auto ast = new VarDeclNode();
+        ast->identifier = *unique_ptr<string>($2);
+        ast->btype = unique_ptr<ASTBase>($4);
+        $$ = ast;
+    }
+    ;
+
 FuncDef
-    : FUNCTION IDENTIFIER '(' ')' RETURNS FuncType Block ENDFUNCTION {
+    : FUNCTION IDENTIFIER LBRACE RBRACE RETURNS FuncType Block ENDFUNCTION {
         auto ast = new FuncDefNode();
         ast->identifier = *unique_ptr<string>($2);
         ast->func_type = unique_ptr<ASTBase>($6);
@@ -67,17 +120,51 @@ FuncType
     ;
 
 Block
-    : Stmt {
+    : /* Empty */ { 
+        $$ = new BlockNode(); 
+    }
+    | BlockItems {
         auto ast = new BlockNode();
-        ast->block = unique_ptr<ASTBase>($1);
+        ast->items = std::move(*$1);
+        delete $1;
+        $$ = ast;
+    }
+    ;
+
+BlockItems
+    : BlockItem {
+        $$ = new std::vector<std::unique_ptr<ASTBase>>();
+        $$->push_back(std::unique_ptr<ASTBase>($1));
+    }
+    | BlockItems BlockItem {
+        $$ = $1;
+        $$->push_back(std::unique_ptr<ASTBase>($2));
+    }
+    ;
+
+BlockItem
+    : Decl {
+        auto ast = new BlockItemNode();
+        ast->stmt = unique_ptr<ASTBase>($1);
+        $$ = ast;
+    }
+    | Stmt {
+        auto ast = new BlockItemNode();
+        ast->stmt = unique_ptr<ASTBase>($1);
         $$ = ast;
     }
     ;
 
 Stmt
-    : RETURN Exp {
-        auto ast = new StmtNode();
-        ast->stmt = unique_ptr<ASTBase>($2);
+    : LVal EQ Exp {
+        auto ast = new StmtNodeA();
+        ast->lval = unique_ptr<ASTBase>($1);
+        ast->expr = unique_ptr<ASTBase>($3);
+        $$ = ast;
+    }
+    | RETURN Exp {
+        auto ast = new StmtNodeB();
+        ast->ret = unique_ptr<ASTBase>($2);
         $$ = ast;
     }
     ;
@@ -90,15 +177,23 @@ Exp
     }
     ;
 
+LVal
+    : IDENTIFIER {
+        auto ast = new LValNode();
+        ast->identifier = *unique_ptr<string>($1);
+        $$ = ast;
+    }
+    ;
+
 PrimaryExp
-    : '(' Exp ')' {
-        auto ast = new PrimaryExpNodeA();
+    : LBRACE Exp RBRACE {
+        auto ast = new PrimaryExpNode();
         ast->expr = unique_ptr<ASTBase>($2);
         $$ = ast;
     }
     | Number {
-        auto ast = new PrimaryExpNodeB();
-        ast->number = unique_ptr<ASTBase>($1);
+        auto ast = new PrimaryExpNode();
+        ast->expr = unique_ptr<ASTBase>($1);
         $$ = ast;
     }
     ;
@@ -285,6 +380,14 @@ LOrExp
         ast->op = "OR";
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
+        $$ = ast;
+    }
+    ;
+
+ConstExp
+    : Exp {
+        auto ast = new ConstExpNode();
+        ast->expr = unique_ptr<ASTBase>($1);
         $$ = ast;
     }
     ;

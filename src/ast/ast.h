@@ -4,6 +4,7 @@
 #include <iostream>
 #include <string>
 #include <memory>
+#include <vector>
 
 // Base class for all AST nodes
 class ASTBase {
@@ -27,6 +28,65 @@ public:
     void dump() const override {
         std::cout << "CompUnitNode { ";
         func_def->dump();
+        std::cout << " }";
+    }
+};
+
+class DeclNode : public ASTBase {
+public:
+    std::unique_ptr<ASTBase> decl;
+
+    void dump() const override {
+        //std::cout << "DeclNode { ";
+        decl->dump();
+        //std::cout << " }";
+    }
+};
+
+class BTypeNode : public ASTBase {
+public:
+    std::string type;
+
+    void dump() const override {
+        //std::cout << "BTypeNode { ";
+        std::cout << type;
+        //std::cout << " }";
+    }
+};
+
+class ConstDeclNode : public ASTBase {
+public:
+    std::string identifier;
+    std::unique_ptr<ASTBase> val;
+
+    void dump() const override {
+        std::cout << "ConstDeclNode { ";
+        std::cout << identifier << ", ";
+        val->dump();
+        std::cout << " }";
+    }
+};
+
+class ConstInitValNode : public ASTBase {
+public:
+    std::unique_ptr<ASTBase> val;
+
+    void dump() const override {
+        //std::cout << "ConstInitValNode { ";
+        val->dump();
+        //std::cout << " }";
+    }
+};
+
+class VarDeclNode : public ASTBase {
+public:
+    std::string identifier;
+    std::unique_ptr<ASTBase> btype;
+
+    void dump() const override {
+        std::cout << "VarDeclNode { ";
+        std::cout << identifier << ", ";
+        btype->dump();
         std::cout << " }";
     }
 };
@@ -59,22 +119,50 @@ public:
 
 class BlockNode : public ASTBase {
 public:
-    std::unique_ptr<ASTBase> block;
+    std::vector<std::unique_ptr<ASTBase>> items;
 
     void dump() const override {
-        std::cout << "BlockNode { ";
-        block->dump();
-        std::cout << " }";
+        std::cout << "BlockNode {" << std::endl;
+        for (const auto& item : items) {
+            item->dump();
+            std::cout << std::endl;
+        }
+        std::cout << "}";
     }
 };
 
-class StmtNode : public ASTBase {
+class BlockItemNode : public ASTBase {
 public:
     std::unique_ptr<ASTBase> stmt;
 
     void dump() const override {
-        std::cout << "StmtNode { ";
+        //std::cout << "BlockItem { ";
         stmt->dump();
+        //std::cout << " }";
+    }
+};
+
+class StmtNodeA : public ASTBase {
+public:
+    std::unique_ptr<ASTBase> lval;
+    std::unique_ptr<ASTBase> expr;
+
+    void dump() const override {
+        std::cout << "StmtNodeA { ";
+        lval->dump();
+        std::cout << ", ";
+        expr->dump();
+        std::cout << " }";
+    }
+};
+
+class StmtNodeB : public ASTBase {
+public:
+    std::unique_ptr<ASTBase> ret;
+
+    void dump() const override {
+        std::cout << "StmtNodeB { ";
+        ret->dump();
         std::cout << " }";
     }
 };
@@ -90,25 +178,25 @@ public:
     }
 };
 
-class PrimaryExpNodeA : public ASTBase {
+class LValNode : public ASTBase {
+public:
+    std::string identifier;
+
+    void dump() const override {
+        //std::cout << "LVal { ";
+        std::cout << identifier;
+        //std::cout << " }";
+    }
+};
+
+class PrimaryExpNode : public ASTBase {
 public:
     std::unique_ptr<ASTBase> expr;
 
     void dump() const override {
-        std::cout << "PrimaryExpNodeA { ";
+        //std::cout << "PrimaryExpNode { ";
         expr->dump();
-        std::cout << " }";
-    }
-};
-
-class PrimaryExpNodeB : public ASTBase {
-public:
-    std::unique_ptr<ASTBase> number;
-
-    void dump() const override {
-        std::cout << "PrimaryExpNodeB { ";
-        number->dump();
-        std::cout << " }";
+        //std::cout << " }";
     }
 };
 
@@ -117,9 +205,9 @@ public:
     int32_t i32;
 
     void dump() const override {
-        std::cout << "NumberNode { ";
+        //std::cout << "NumberNode { ";
         std::cout << i32;
-        std::cout << " }";
+        //std::cout << " }";
     }
 };
 
@@ -128,9 +216,9 @@ public:
     std::unique_ptr<ASTBase> expr;
 
     void dump() const override {
-        std::cout << "UnaryExpNodeA { ";
+        //std::cout << "UnaryExpNodeA { ";
         expr->dump();
-        std::cout << " }";
+        //std::cout << " }";
     }
 };
 
@@ -164,9 +252,9 @@ public:
     std::unique_ptr<ASTBase> expr;
 
     void dump() const override {
-        std::cout << "MulExpNodeA { ";
+        //std::cout << "MulExpNodeA { ";
         expr->dump();
-        std::cout << " }";
+        //std::cout << " }";
     }
 };
 
@@ -186,9 +274,9 @@ public:
     std::unique_ptr<ASTBase> expr;
 
     void dump() const override {
-        std::cout << "AddExpNodeA { ";
+        //std::cout << "AddExpNodeA { ";
         expr->dump();
-        std::cout << " }";
+        //std::cout << " }";
     }
 };
 
@@ -208,9 +296,9 @@ public:
     std::unique_ptr<ASTBase> expr;
 
     void dump() const override {
-        std::cout << "RelExpNodeA { ";
+        //std::cout << "RelExpNodeA { ";
         expr->dump();
-        std::cout << " }";
+        //std::cout << " }";
     }
 };
 
@@ -230,9 +318,9 @@ public:
     std::unique_ptr<ASTBase> expr;
 
     void dump() const override {
-        std::cout << "EqExpNodeA { ";
+        //std::cout << "EqExpNodeA { ";
         expr->dump();
-        std::cout << " }";
+        //std::cout << " }";
     }
 };
 
@@ -252,9 +340,9 @@ public:
     std::unique_ptr<ASTBase> expr;
 
     void dump() const override {
-        std::cout << "LAndExpNodeA { ";
+        //std::cout << "LAndExpNodeA { ";
         expr->dump();
-        std::cout << " }";
+        //std::cout << " }";
     }
 };
 
@@ -274,9 +362,9 @@ public:
     std::unique_ptr<ASTBase> expr;
 
     void dump() const override {
-        std::cout << "LOrExpNodeA { ";
+        //std::cout << "LOrExpNodeA { ";
         expr->dump();
-        std::cout << " }";
+        //std::cout << " }";
     }
 };
 
@@ -288,6 +376,17 @@ public:
         std::cout << ", ";
         right->dump();
         std::cout << " }";
+    }
+};
+
+class ConstExpNode : public ASTBase {
+public:
+    std::unique_ptr<ASTBase> expr;
+
+    void dump() const override {
+        //std::cout << "ConstExpNode { ";
+        expr->dump();
+        //std::cout << " }";
     }
 };
 

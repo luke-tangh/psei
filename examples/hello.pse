@@ -1,4 +1,7 @@
 FUNCTION main() RETURNS INTEGER
     // ignore me
-    RETURN 1 + (2 - 4) * -3 
+    DECLARE foo : INTEGER
+    DECLARE bar : INTEGER
+    CONSTANT yoo = 13
+    RETURN 1 + 2 * -3
 ENDFUNCTION
