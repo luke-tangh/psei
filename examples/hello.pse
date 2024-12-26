@@ -1,3 +1,4 @@
 FUNCTION main() RETURNS INTEGER
-    RETURN 0
+    // ignore me
+    RETURN 1 + (2 - 4) * -3 
 ENDFUNCTION

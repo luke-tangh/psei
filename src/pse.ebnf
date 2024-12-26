@@ -1,8 +1,21 @@
 CompUnit  ::= FuncDef;
 
-FuncDef   ::= FUNCTION IDENTIFIER "(" ")" RETURNS FuncType Block ENDFUNCTION;
-FuncType  ::= "INTEGER";
+(* Function *)
+FuncDef     ::= FUNCTION IDENTIFIER "(" ")" RETURNS FuncType Block ENDFUNCTION;
+FuncType    ::= "INTEGER";
+    
+Block       ::= Stmt;
+Stmt        ::= "RETURN" Exp;
 
-Block     ::= Stmt;
-Stmt      ::= "RETURN" Number;
-Number    ::= INT_CONST;
+(* Expression *)
+Exp         ::= LOrExp;
+PrimaryExp  ::= "(" Exp ")" | Number;
+Number      ::= INT_CONST;
+UnaryExp    ::= PrimaryExp | UnaryOp UnaryExp;
+UnaryOp     ::= "+" | "-" | "NOT";
+MulExp      ::= UnaryExp | MulExp ("*" | "/" | "DIV" | "MOD") UnaryExp;
+AddExp      ::= MulExp | AddExp ("+" | "-") MulExp;
+RelExp      ::= AddExp | RelExp ("<" | ">" | "<=" | ">=") AddExp;
+EqExp       ::= RelExp | EqExp ("=" | "<>") RelExp;
+LAndExp     ::= EqExp | LAndExp "AND" EqExp;
+LOrExp      ::= LAndExp | LOrExp "OR" LAndExp;

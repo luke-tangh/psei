@@ -31,12 +31,29 @@ Hexadecimal   0[xX][0-9a-fA-F]+
 {WhiteSpace}    { /* Ignore */ }
 {LineComment}   { /* Ignore */ }
 
+"+"             { return ADD; }
+"-"             { return SUB; }
+"NOT"           { return NOT; }
+"*"             { return MUL; }
+"/"             { return DIV; }
+"DIV"           { return INTDIV; }
+"MOD"           { return MOD; }
+"<"             { return LT; }
+">"             { return GT; }
+"<="            { return LEQ; }
+">="            { return GEQ; }
+"="             { return EQ; }
+"<>"            { return NEQ; }
+"AND"           { return AND; }
+"OR"            { return OR; }
+
 "INTEGER"       { return INTEGER; }
 
 "RETURN"        { return RETURN; }
 "RETURNS"       { return RETURNS; }
 "FUNCTION"      { return FUNCTION; }
 "ENDFUNCTION"   { return ENDFUNCTION; }
+
 
 {Identifier}    { yylval.str_val = new string(yytext); return IDENTIFIER; }
 

@@ -7,7 +7,7 @@
 #include "ast/ast.h"
 
 extern FILE *yyin;
-extern int yyparse(std::unique_ptr<ASTNode> &ast);
+extern int yyparse(std::unique_ptr<ASTBase> &ast);
 
 int main(int argc, const char *argv[]) {
     // compiler mode input -o output
@@ -19,7 +19,7 @@ int main(int argc, const char *argv[]) {
     yyin = fopen(input, "r");
     assert(yyin);
 
-    std::unique_ptr<ASTNode> ast;
+    std::unique_ptr<ASTBase> ast;
     auto ret = yyparse(ast);
     assert(!ret);
 
