@@ -42,6 +42,7 @@ Symbol* SymbolTable::lookup(const std::string& name) {
 void SymbolTable::dump() const {
     int scope_level = 0;
     for (const auto& scope : scopes) {
+        std::cout << "\nSymbol Table:\n";
         std::cout << "Scope Level " << scope_level++ << ":\n";
         for (const auto& [name, symbol] : scope) {
             std::cout << "  " << name << " -> " << symbol.type

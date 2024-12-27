@@ -3,6 +3,7 @@ FUNCTION main() RETURNS INTEGER
     DECLARE foo : INTEGER
     DECLARE bar : INTEGER
     CONSTANT yoo = 13
+    CONSTANT yoo = 13
     CONSTANT poo = "YOOO~"
     RETURN 1 + 2 * -3
 ENDFUNCTION

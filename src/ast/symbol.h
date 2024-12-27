@@ -6,13 +6,18 @@
 #include <vector>
 #include <variant>
 
+#define STYPE_VAR   "VARIABLE"
+#define STYPE_CONST "CONSTANT"
+#define STYPE_FUNC  "FUNCTION"
+
 struct Symbol {
     std::string name;
     std::string type;
-    int scope_level;
     int line_number;
-    bool is_function;
-    std::variant<int, double, char, std::string> value;
+
+    Symbol() {};
+    Symbol(const std::string& name, const std::string& type, int line_number)
+        : name(name), type(type), line_number(line_number) {}
 };
 
 class SymbolTable {

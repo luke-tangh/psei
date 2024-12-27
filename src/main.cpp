@@ -5,9 +5,10 @@
 #include <string>
 
 #include "ast/ast.h"
+#include "ast/symbol.h"
 
 extern FILE *yyin;
-extern int yyparse(std::unique_ptr<ASTBase> &ast);
+extern int yyparse(std::unique_ptr<ASTBase> &ast, std::unique_ptr<SymbolTable> &symTable);
 
 int main(int argc, const char *argv[]) {
     // compiler mode input -o output
@@ -20,10 +21,12 @@ int main(int argc, const char *argv[]) {
     assert(yyin);
 
     std::unique_ptr<ASTBase> ast;
-    auto ret = yyparse(ast);
+    std::unique_ptr<SymbolTable> symTable = std::make_unique<SymbolTable>();
+    auto ret = yyparse(ast, symTable);
     assert(!ret);
 
     ast->dump();
+    symTable->dump();
     std::cout << std::endl;
 
     return 0;

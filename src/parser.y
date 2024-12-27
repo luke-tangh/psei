@@ -1,6 +1,8 @@
 %code requires {
     #include <memory>
     #include <string>
+    #include "ast/ast.h"
+    #include "ast/symbol.h"
 }
 
 %{
@@ -8,17 +10,28 @@
 #include <iostream>
 #include <memory>
 #include <string>
-
 #include "ast/ast.h"
+#include "ast/symbol.h"
+
+extern int yylineno;
+extern char* yytext;
 
 int yylex();
-void yyerror(std::unique_ptr<ASTBase> &ast, const char *s);
+void yyerror(const char* s);
+void yyerror(
+    std::unique_ptr<ASTBase> &ast, 
+    std::unique_ptr<SymbolTable> &symTable, 
+    const char *s
+);
 
 using namespace std;
 
 %}
 
+%define parse.error verbose
+
 %parse-param { std::unique_ptr<ASTBase> &ast }
+%parse-param { std::unique_ptr<SymbolTable> &symTable }
 
 %union {
     int int_val;
@@ -97,6 +110,15 @@ ConstDecl
         ast->identifier = *unique_ptr<string>($2);
         ast->val = unique_ptr<ASTBase>($4);
         $$ = ast;
+
+        Symbol sym = Symbol(
+            ast->identifier,
+            STYPE_CONST,
+            yylineno
+        );
+        if (!symTable->insert(sym.name, sym)) {
+            yyerror(("Identifier already defined: " + sym.type + " \"" + sym.name + "\"").c_str());
+        }
     }
     ;
 
@@ -119,6 +141,15 @@ VarDecl
         ast->identifier = *unique_ptr<string>($2);
         ast->btype = unique_ptr<ASTBase>($4);
         $$ = ast;
+
+        Symbol sym = Symbol(
+            ast->identifier,
+            STYPE_VAR,
+            yylineno
+        );
+        if (!symTable->insert(sym.name, sym)) {
+            yyerror(("Identifier already defined: " + sym.type + " \"" + sym.name + "\"").c_str());
+        }
     }
     ;
 
@@ -145,13 +176,22 @@ FuncDef
         ast->func_type = unique_ptr<ASTBase>($6);
         ast->block = unique_ptr<ASTBase>($7);
         $$ = ast;
+
+        Symbol sym = Symbol(
+            ast->identifier,
+            STYPE_FUNC,
+            yylineno
+        );
+        if (!symTable->insert(sym.name, sym)) {
+            yyerror(("Identifier already defined: " + sym.type + " \"" + sym.name + "\"").c_str());
+        }
     }
     ;
 
 FuncType
     : INTEGER {
         auto ast = new FuncTypeNode();
-        ast->type = "INTEGER";
+        ast->type = DTYPE_INT;
         $$ = ast;
     }
     ;
@@ -252,17 +292,17 @@ UnaryExp
 UnaryOp
     : ADD {
         auto ast = new UnaryOpNode();
-        ast->op = "ADD";
+        ast->op = OP_ADD;
         $$ = ast;
     }
     | SUB {
         auto ast = new UnaryOpNode();
-        ast->op = "SUB";
+        ast->op = OP_SUB;
         $$ = ast;
     }
     | NOT {
         auto ast = new UnaryOpNode();
-        ast->op = "NOT";
+        ast->op = OP_NOT;
         $$ = ast;
     }
     ;
@@ -275,28 +315,28 @@ MulExp
     }
     | MulExp MUL UnaryExp {
         auto ast = new MulExpNodeB();
-        ast->op = "MUL";
+        ast->op = OP_MUL;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
         $$ = ast;
     }
     | MulExp DIV UnaryExp {
         auto ast = new MulExpNodeB();
-        ast->op = "DIV";
+        ast->op = OP_DIV;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
         $$ = ast;
     }
     | MulExp INTDIV UnaryExp {
         auto ast = new MulExpNodeB();
-        ast->op = "INTDIV";
+        ast->op = OP_INTDIV;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
         $$ = ast;
     }
     | MulExp MOD UnaryExp {
         auto ast = new MulExpNodeB();
-        ast->op = "MOD";
+        ast->op = OP_MOD;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
         $$ = ast;
@@ -311,14 +351,14 @@ AddExp
     }
     | AddExp ADD MulExp {
         auto ast = new AddExpNodeB();
-        ast->op = "ADD";
+        ast->op = OP_ADD;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
         $$ = ast;
     }
     | AddExp SUB MulExp {
         auto ast = new AddExpNodeB();
-        ast->op = "SUB";
+        ast->op = OP_SUB;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
         $$ = ast;
@@ -333,28 +373,28 @@ RelExp
     }
     | RelExp LT AddExp {
         auto ast = new RelExpNodeB();
-        ast->op = "LT";
+        ast->op = OP_LT;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
         $$ = ast;
     }
     | RelExp GT AddExp {
         auto ast = new RelExpNodeB();
-        ast->op = "GT";
+        ast->op = OP_GT;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
         $$ = ast;
     }
     | RelExp LEQ AddExp {
         auto ast = new RelExpNodeB();
-        ast->op = "LEQ";
+        ast->op = OP_LEQ;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
         $$ = ast;
     }
     | RelExp GEQ AddExp {
         auto ast = new RelExpNodeB();
-        ast->op = "GEQ";
+        ast->op = OP_GEQ;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
         $$ = ast;
@@ -369,14 +409,14 @@ EqExp
     }
     | EqExp EQ RelExp {
         auto ast = new EqExpNodeB();
-        ast->op = "EQ";
+        ast->op = OP_EQ;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
         $$ = ast;
     }
     | EqExp NEQ RelExp {
         auto ast = new EqExpNodeB();
-        ast->op = "NEQ";
+        ast->op = OP_NEQ;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
         $$ = ast;
@@ -391,7 +431,7 @@ LAndExp
     }
     | LAndExp AND EqExp {
         auto ast = new LAndExpNodeB();
-        ast->op = "AND";
+        ast->op = OP_AND;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
         $$ = ast;
@@ -406,7 +446,7 @@ LOrExp
     }
     | LOrExp OR LAndExp {
         auto ast = new LOrExpNodeB();
-        ast->op = "OR";
+        ast->op = OP_OR;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
         $$ = ast;
@@ -415,6 +455,12 @@ LOrExp
 
 %%
 
-void yyerror(unique_ptr<ASTBase> &ast, const char *s) {
-    cerr << "error: " << s << endl;
+void yyerror(const char* s) {
+    cerr << "Error at line " << yylineno << ": " << s
+         << " near '" << yytext << "'" << endl;
+}
+
+void yyerror(unique_ptr<ASTBase> &ast, unique_ptr<SymbolTable> &symTable, const char *s) {
+    cerr << "Error at line " << yylineno << ": " << s
+         << " near '" << yytext << "'" << endl;
 }

@@ -6,6 +6,27 @@
 #include <memory>
 #include <vector>
 
+#define DTYPE_INT "INTEGER"
+#define DTYPE_STR "STRING"
+
+#define OP_ADD    "ADD"
+#define OP_SUB    "SUB"
+#define OP_NOT    "NOT"
+#define OP_MUL    "MUL"
+#define OP_DIV    "DIV"
+#define OP_INTDIV "INTDIV"
+#define OP_MOD    "MOD"
+#define OP_LT     "LT"
+#define OP_GT     "GT"
+#define OP_LEQ    "LEQ"
+#define OP_GEQ    "GEQ"
+#define OP_EQ     "EQ"
+#define OP_NEQ    "NEQ"
+#define OP_AND    "AND"
+#define OP_OR     "OR"
+#define OP_COL    "COL"
+
+
 // Base class for all AST nodes
 class ASTBase {
 public:
