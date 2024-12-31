@@ -57,6 +57,11 @@ Hexadecimal   0[xX][0-9a-fA-F]+
 "CONSTANT"      { return CONSTANT; }
 "DECLARE"       { return DECLARE; }
 
+"IF"            { return IF; }
+"THEN"          { return THEN; }
+"ELSE"          { return ELSE; }
+"ENDIF"         { return ENDIF; }
+
 "RETURN"        { return RETURN; }
 "RETURNS"       { return RETURNS; }
 "FUNCTION"      { return FUNCTION; }

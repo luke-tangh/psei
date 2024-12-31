@@ -42,6 +42,7 @@ using namespace std;
 
 %token INTEGER
 %token DECLARE CONSTANT
+%token IF THEN ELSE ENDIF
 %token RETURN RETURNS FUNCTION ENDFUNCTION
 %token PLUS MINUS NOT
 %token LBRACE RBRACE ADD SUB MUL DIV INTDIV MOD
@@ -52,7 +53,7 @@ using namespace std;
 
 %type <ast_val> Number String
 %type <ast_val> Decl BType ConstDecl ConstInitVal VarDecl ConstExp ConstStr
-%type <ast_val> FuncDef FuncType Block BlockItem Stmt LVal 
+%type <ast_val> FuncDef FuncType Block BlockItem Stmt LVal OptionalElse
 %type <ast_val> Exp PrimaryExp UnaryExp UnaryOp MulExp AddExp RelExp EqExp LAndExp LOrExp 
 
 %type <vec_val> BlockItems
@@ -234,15 +235,31 @@ BlockItem
 
 Stmt
     : LVal EQ Exp {
-        auto ast = new StmtNodeA();
+        auto ast = new StmtNodeAssign();
         ast->lval = unique_ptr<ASTBase>($1);
         ast->expr = unique_ptr<ASTBase>($3);
         $$ = ast;
     }
+    | IF Exp THEN Block OptionalElse ENDIF {
+        auto ast = new StmtNodeIf();
+        ast->cond = unique_ptr<ASTBase>($2);
+        ast->ifs = unique_ptr<ASTBase>($4);
+        ast->elses = unique_ptr<ASTBase>($5);
+        $$ = ast;
+    }
     | RETURN Exp {
-        auto ast = new StmtNodeB();
+        auto ast = new StmtNodeReturn();
         ast->ret = unique_ptr<ASTBase>($2);
         $$ = ast;
+    }
+    ;
+
+OptionalElse
+    : ELSE Block { 
+        $$ = $2; 
+    }
+    | {
+        $$ = nullptr; 
     }
     ;
 

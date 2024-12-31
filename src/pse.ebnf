@@ -18,7 +18,8 @@ FuncType      ::= "INTEGER";
 
 Block         ::= { BlockItem };
 BlockItem     ::= Decl | Stmt;
-Stmt          ::= LVal "=" Exp 
+Stmt          ::= LVal "=" Exp
+              | "IF" Exp "THEN" Block ["ELSE" Block] "ENDIF"
               | "RETURN" Exp;
 
 (* Expression *)

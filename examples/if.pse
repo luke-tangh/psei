@@ -1,0 +1,11 @@
+FUNCTION main() RETURNS INTEGER
+    // ignore me
+
+    IF 1 THEN
+        CONSTANT y = 1
+    ELSE
+        CONSTANT z = 2
+    ENDIF
+
+    RETURN 0
+ENDFUNCTION

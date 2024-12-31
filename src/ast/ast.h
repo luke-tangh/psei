@@ -9,6 +9,10 @@
 #define DTYPE_INT "INTEGER"
 #define DTYPE_STR "STRING"
 
+#define STYPE_VAR   "VARIABLE"
+#define STYPE_CONST "CONSTANT"
+#define STYPE_FUNC  "FUNCTION"
+
 #define OP_ADD    "ADD"
 #define OP_SUB    "SUB"
 #define OP_NOT    "NOT"
@@ -26,13 +30,12 @@
 #define OP_OR     "OR"
 #define OP_COL    "COL"
 
-
 // Base class for all AST nodes
 class ASTBase {
 public:
     virtual ~ASTBase() = default;
     virtual void dump() const = 0;
-    //virtual int evaluate() = 0;
+    //virtual int eval() = 0;
 };
 
 class BinaryOpBase : public ASTBase {
@@ -207,13 +210,13 @@ public:
     }
 };
 
-class StmtNodeA : public ASTBase {
+class StmtNodeAssign : public ASTBase {
 public:
     std::unique_ptr<ASTBase> lval;
     std::unique_ptr<ASTBase> expr;
 
     void dump() const override {
-        std::cout << "StmtNodeA { ";
+        std::cout << "StmtNodeAssign { ";
         lval->dump();
         std::cout << ", ";
         expr->dump();
@@ -221,12 +224,29 @@ public:
     }
 };
 
-class StmtNodeB : public ASTBase {
+class StmtNodeIf : public ASTBase {
+public:
+    std::unique_ptr<ASTBase> cond;
+    std::unique_ptr<ASTBase> ifs;
+    std::unique_ptr<ASTBase> elses;
+
+    void dump() const override {
+        std::cout << "StmtNodeIf { ";
+        cond->dump();
+        std::cout << ", ";
+        ifs->dump();
+        std::cout << ", ";
+        if(elses) elses->dump();
+        std::cout << " }";
+    }
+};
+
+class StmtNodeReturn : public ASTBase {
 public:
     std::unique_ptr<ASTBase> ret;
 
     void dump() const override {
-        std::cout << "StmtNodeB { ";
+        std::cout << "StmtNodeReturn { ";
         ret->dump();
         std::cout << " }";
     }

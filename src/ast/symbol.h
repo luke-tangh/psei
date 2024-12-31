@@ -6,10 +6,6 @@
 #include <vector>
 #include <variant>
 
-#define STYPE_VAR   "VARIABLE"
-#define STYPE_CONST "CONSTANT"
-#define STYPE_FUNC  "FUNCTION"
-
 struct Symbol {
     std::string name;
     std::string type;
