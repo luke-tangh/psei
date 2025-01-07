@@ -63,6 +63,9 @@ Hexadecimal   0[xX][0-9a-fA-F]+
 "ELSE"          { return ELSE; }
 "ENDIF"         { return ENDIF; }
 
+"WHILE"         { return WHILE; }
+"ENDWHILE"      { return ENDWHILE; }
+
 "RETURN"        { return RETURN; }
 "RETURNS"       { return RETURNS; }
 "FUNCTION"      { return FUNCTION; }

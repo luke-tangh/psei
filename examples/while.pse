@@ -1,0 +1,10 @@
+FUNCTION main() RETURNS INTEGER
+    // ignore me
+    CONSTANT x = 1
+
+    WHILE x = 1
+        x <- x + 1
+    ENDWHILE
+
+    RETURN 0
+ENDFUNCTION

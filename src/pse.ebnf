@@ -20,6 +20,7 @@ Block         ::= { BlockItem };
 BlockItem     ::= Decl | Stmt;
 Stmt          ::= LVal "<-" Exp
               | "IF" Exp "THEN" Block ["ELSE" Block] "ENDIF"
+              | "WHILE" Exp Block "ENDWHILE"
               | "RETURN" Exp;
 
 (* Expression *)

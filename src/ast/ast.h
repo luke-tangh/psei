@@ -241,6 +241,20 @@ public:
     }
 };
 
+class StmtNodeWhile : public ASTBase {
+public:
+    std::unique_ptr<ASTBase> cond;
+    std::unique_ptr<ASTBase> stmt;
+
+    void dump() const override {
+        std::cout << "StmtNodeWhile { ";
+        cond->dump();
+        std::cout << ", ";
+        stmt->dump();
+        std::cout << " }";
+    }
+};
+
 class StmtNodeReturn : public ASTBase {
 public:
     std::unique_ptr<ASTBase> ret;

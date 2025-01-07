@@ -42,8 +42,11 @@ using namespace std;
 
 %token INTEGER
 %token DECLARE CONSTANT
+
 %token IF THEN ELSE ENDIF
-%token RETURN RETURNS FUNCTION ENDFUNCTION
+%token WHILE ENDWHILE
+%token FUNCTION ENDFUNCTION RETURN RETURNS
+
 %token PLUS MINUS NOT
 %token ASSIGN LBRACE RBRACE ADD SUB MUL DIV INTDIV MOD
 %token LT GT LEQ GEQ EQ NEQ AND OR COL
@@ -248,6 +251,12 @@ Stmt
         ast->cond = unique_ptr<ASTBase>($2);
         ast->ifs = unique_ptr<ASTBase>($4);
         ast->elses = unique_ptr<ASTBase>($5);
+        $$ = ast;
+    }
+    | WHILE Exp Block ENDWHILE {
+        auto ast = new StmtNodeWhile();
+        ast->cond = unique_ptr<ASTBase>($2);
+        ast->stmt = unique_ptr<ASTBase>($3);
         $$ = ast;
     }
     | RETURN Exp {
