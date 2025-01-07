@@ -45,7 +45,7 @@ using namespace std;
 %token IF THEN ELSE ENDIF
 %token RETURN RETURNS FUNCTION ENDFUNCTION
 %token PLUS MINUS NOT
-%token LBRACE RBRACE ADD SUB MUL DIV INTDIV MOD
+%token ASSIGN LBRACE RBRACE ADD SUB MUL DIV INTDIV MOD
 %token LT GT LEQ GEQ EQ NEQ AND OR COL
 
 %token <str_val> STR_CONST IDENTIFIER
@@ -198,14 +198,17 @@ FuncType
     ;
 
 Block
-    : /* Empty */ { 
-        $$ = new BlockNode(); 
+    : /* Empty */ {
+        $$ = new BlockNode();
     }
-    | BlockItems {
+    | {
+        symTable->enterScope();
+    } BlockItems {     
         auto ast = new BlockNode();
-        ast->items = std::move(*$1);
-        delete $1;
+        ast->items = std::move(*$2);
+        delete $2;
         $$ = ast;
+        symTable->exitScope();
     }
     ;
 
@@ -234,7 +237,7 @@ BlockItem
     ;
 
 Stmt
-    : LVal EQ Exp {
+    : LVal ASSIGN Exp {
         auto ast = new StmtNodeAssign();
         ast->lval = unique_ptr<ASTBase>($1);
         ast->expr = unique_ptr<ASTBase>($3);
@@ -258,7 +261,7 @@ OptionalElse
     : ELSE Block { 
         $$ = $2; 
     }
-    | {
+    | /* Empty */ {
         $$ = nullptr; 
     }
     ;
@@ -290,16 +293,21 @@ PrimaryExp
         ast->expr = unique_ptr<ASTBase>($1);
         $$ = ast;
     }
+    | LVal {
+        auto ast = new PrimaryExpNode();
+        ast->expr = unique_ptr<ASTBase>($1);
+        $$ = ast;
+    }
     ;
 
 UnaryExp
     : PrimaryExp {
-        auto ast = new UnaryExpNodeA();
+        auto ast = new UnaryExpNodeReduce();
         ast->expr = unique_ptr<ASTBase>($1);
         $$ = ast;
     }
     | UnaryOp UnaryExp {
-        auto ast = new UnaryExpNodeB();
+        auto ast = new UnaryExpNodeOp();
         ast->op = unique_ptr<ASTBase>($1);
         ast->expr = unique_ptr<ASTBase>($2);
         $$ = ast;
@@ -326,33 +334,33 @@ UnaryOp
 
 MulExp
     : UnaryExp {
-        auto ast = new MulExpNodeA();
+        auto ast = new MulExpNodeReduce();
         ast->expr = unique_ptr<ASTBase>($1);
         $$ = ast;
     }
     | MulExp MUL UnaryExp {
-        auto ast = new MulExpNodeB();
+        auto ast = new MulExpNodeOp();
         ast->op = OP_MUL;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
         $$ = ast;
     }
     | MulExp DIV UnaryExp {
-        auto ast = new MulExpNodeB();
+        auto ast = new MulExpNodeOp();
         ast->op = OP_DIV;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
         $$ = ast;
     }
     | MulExp INTDIV UnaryExp {
-        auto ast = new MulExpNodeB();
+        auto ast = new MulExpNodeOp();
         ast->op = OP_INTDIV;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
         $$ = ast;
     }
     | MulExp MOD UnaryExp {
-        auto ast = new MulExpNodeB();
+        auto ast = new MulExpNodeOp();
         ast->op = OP_MOD;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
@@ -362,19 +370,19 @@ MulExp
 
 AddExp
     : MulExp {
-        auto ast = new AddExpNodeA();
+        auto ast = new AddExpNodeReduce();
         ast->expr = unique_ptr<ASTBase>($1);
         $$ = ast;
     }
     | AddExp ADD MulExp {
-        auto ast = new AddExpNodeB();
+        auto ast = new AddExpNodeOp();
         ast->op = OP_ADD;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
         $$ = ast;
     }
     | AddExp SUB MulExp {
-        auto ast = new AddExpNodeB();
+        auto ast = new AddExpNodeOp();
         ast->op = OP_SUB;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
@@ -384,33 +392,33 @@ AddExp
 
 RelExp
     : AddExp {
-        auto ast = new RelExpNodeA();
+        auto ast = new RelExpNodeReduce();
         ast->expr = unique_ptr<ASTBase>($1);
         $$ = ast;
     }
     | RelExp LT AddExp {
-        auto ast = new RelExpNodeB();
+        auto ast = new RelExpNodeCompare();
         ast->op = OP_LT;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
         $$ = ast;
     }
     | RelExp GT AddExp {
-        auto ast = new RelExpNodeB();
+        auto ast = new RelExpNodeCompare();
         ast->op = OP_GT;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
         $$ = ast;
     }
     | RelExp LEQ AddExp {
-        auto ast = new RelExpNodeB();
+        auto ast = new RelExpNodeCompare();
         ast->op = OP_LEQ;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
         $$ = ast;
     }
     | RelExp GEQ AddExp {
-        auto ast = new RelExpNodeB();
+        auto ast = new RelExpNodeCompare();
         ast->op = OP_GEQ;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
@@ -420,19 +428,19 @@ RelExp
 
 EqExp
     : RelExp {
-        auto ast = new EqExpNodeA();
+        auto ast = new EqExpNodeReduce();
         ast->expr = unique_ptr<ASTBase>($1);
         $$ = ast;
     }
     | EqExp EQ RelExp {
-        auto ast = new EqExpNodeB();
+        auto ast = new EqExpNodeCompare();
         ast->op = OP_EQ;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
         $$ = ast;
     }
     | EqExp NEQ RelExp {
-        auto ast = new EqExpNodeB();
+        auto ast = new EqExpNodeCompare();
         ast->op = OP_NEQ;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
@@ -442,12 +450,12 @@ EqExp
 
 LAndExp
     : EqExp {
-        auto ast = new LAndExpNodeA();
+        auto ast = new LAndExpNodeReduce();
         ast->expr = unique_ptr<ASTBase>($1);
         $$ = ast;
     }
     | LAndExp AND EqExp {
-        auto ast = new LAndExpNodeB();
+        auto ast = new LAndExpNodeLogic();
         ast->op = OP_AND;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
@@ -457,12 +465,12 @@ LAndExp
 
 LOrExp
     : LAndExp {
-        auto ast = new LOrExpNodeA();
+        auto ast = new LOrExpNodeReduce();
         ast->expr = unique_ptr<ASTBase>($1);
         $$ = ast;
     }
     | LOrExp OR LAndExp {
-        auto ast = new LOrExpNodeB();
+        auto ast = new LOrExpNodeLogic();
         ast->op = OP_OR;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);

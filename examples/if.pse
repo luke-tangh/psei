@@ -1,10 +1,14 @@
 FUNCTION main() RETURNS INTEGER
     // ignore me
+    CONSTANT x = 1
 
-    IF 1 THEN
+    IF x = 1 THEN
         CONSTANT y = 1
     ELSE
-        CONSTANT z = 2
+        IF 2 THEN
+            CONSTANT z = 2
+            RETURN 1
+        ENDIF
     ENDIF
 
     RETURN 0

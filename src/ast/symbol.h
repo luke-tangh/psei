@@ -19,6 +19,7 @@ struct Symbol {
 class SymbolTable {
 private:
     std::vector<std::unordered_map<std::string, Symbol>> scopes;
+    std::vector<std::string> history;
 
 public:
     SymbolTable();

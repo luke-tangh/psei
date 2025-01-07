@@ -285,24 +285,24 @@ public:
     }
 };
 
-class UnaryExpNodeA : public ASTBase {
+class UnaryExpNodeReduce : public ASTBase {
 public:
     std::unique_ptr<ASTBase> expr;
 
     void dump() const override {
-        //std::cout << "UnaryExpNodeA { ";
+        //std::cout << "UnaryExpNodeReduce { ";
         expr->dump();
         //std::cout << " }";
     }
 };
 
-class UnaryExpNodeB : public ASTBase {
+class UnaryExpNodeOp : public ASTBase {
 public:
     std::unique_ptr<ASTBase> op;
     std::unique_ptr<ASTBase> expr;
 
     void dump() const override {
-        std::cout << "UnaryExpNodeB { ";
+        std::cout << "UnaryExpNodeOp { ";
         op->dump();
         std::cout << ", ";
         expr->dump();
@@ -321,21 +321,21 @@ public:
     }
 };
 
-class MulExpNodeA : public ASTBase {
+class MulExpNodeReduce : public ASTBase {
 public:
     std::unique_ptr<ASTBase> expr;
 
     void dump() const override {
-        //std::cout << "MulExpNodeA { ";
+        //std::cout << "MulExpNodeReduce { ";
         expr->dump();
         //std::cout << " }";
     }
 };
 
-class MulExpNodeB : public BinaryOpBase {
+class MulExpNodeOp : public BinaryOpBase {
 public:
     void dump() const override {
-        std::cout << "MulExpNodeB { " << op << ", ";
+        std::cout << "MulExpNodeOp { " << op << ", ";
         left->dump();
         std::cout << ", ";
         right->dump();
@@ -343,21 +343,21 @@ public:
     }
 };
 
-class AddExpNodeA : public ASTBase {
+class AddExpNodeReduce : public ASTBase {
 public:
     std::unique_ptr<ASTBase> expr;
 
     void dump() const override {
-        //std::cout << "AddExpNodeA { ";
+        //std::cout << "AddExpNodeReduce { ";
         expr->dump();
         //std::cout << " }";
     }
 };
 
-class AddExpNodeB : public BinaryOpBase {
+class AddExpNodeOp : public BinaryOpBase {
 public:
     void dump() const override {
-        std::cout << "AddExpNodeB { " << op << ", ";
+        std::cout << "AddExpNodeOp { " << op << ", ";
         left->dump();
         std::cout << ", ";
         right->dump();
@@ -365,21 +365,21 @@ public:
     }
 };
 
-class RelExpNodeA : public ASTBase {
+class RelExpNodeReduce : public ASTBase {
 public:
     std::unique_ptr<ASTBase> expr;
 
     void dump() const override {
-        //std::cout << "RelExpNodeA { ";
+        //std::cout << "RelExpNodeReduce { ";
         expr->dump();
         //std::cout << " }";
     }
 };
 
-class RelExpNodeB : public BinaryOpBase {
+class RelExpNodeCompare : public BinaryOpBase {
 public:
     void dump() const override {
-        std::cout << "RelExpNodeB { " << op << ", ";
+        std::cout << "RelExpNodeCompare { " << op << ", ";
         left->dump();
         std::cout << ", ";
         right->dump();
@@ -387,21 +387,21 @@ public:
     }
 };
 
-class EqExpNodeA : public ASTBase {
+class EqExpNodeReduce : public ASTBase {
 public:
     std::unique_ptr<ASTBase> expr;
 
     void dump() const override {
-        //std::cout << "EqExpNodeA { ";
+        //std::cout << "EqExpNodeReduce { ";
         expr->dump();
         //std::cout << " }";
     }
 };
 
-class EqExpNodeB : public BinaryOpBase {
+class EqExpNodeCompare : public BinaryOpBase {
 public:
     void dump() const override {
-        std::cout << "EqExpNodeB { " << op << ", ";
+        std::cout << "EqExpNodeCompare { " << op << ", ";
         left->dump();
         std::cout << ", ";
         right->dump();
@@ -409,7 +409,7 @@ public:
     }
 };
 
-class LAndExpNodeA : public ASTBase {
+class LAndExpNodeReduce : public ASTBase {
 public:
     std::unique_ptr<ASTBase> expr;
 
@@ -420,7 +420,7 @@ public:
     }
 };
 
-class LAndExpNodeB : public BinaryOpBase {
+class LAndExpNodeLogic : public BinaryOpBase {
 public:
     void dump() const override {
         std::cout << "LAndExpNodeB { " << op << ", ";
@@ -431,21 +431,21 @@ public:
     }
 };
 
-class LOrExpNodeA : public ASTBase {
+class LOrExpNodeReduce : public ASTBase {
 public:
     std::unique_ptr<ASTBase> expr;
 
     void dump() const override {
-        //std::cout << "LOrExpNodeA { ";
+        //std::cout << "LOrExpNodeReduce { ";
         expr->dump();
         //std::cout << " }";
     }
 };
 
-class LOrExpNodeB : public BinaryOpBase {
+class LOrExpNodeLogic : public BinaryOpBase {
 public:
     void dump() const override {
-        std::cout << "LOrExpNodeB { " << op << ", ";
+        std::cout << "LOrExpNodeLogic { " << op << ", ";
         left->dump();
         std::cout << ", ";
         right->dump();

@@ -33,6 +33,7 @@ Hexadecimal   0[xX][0-9a-fA-F]+
 {WhiteSpace}    { /* Ignore */ }
 {LineComment}   { /* Ignore */ }
 
+"<-"            { return ASSIGN; }
 "("             { return LBRACE; }
 ")"             { return RBRACE; }
 "+"             { return ADD; }

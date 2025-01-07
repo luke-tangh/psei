@@ -18,14 +18,14 @@ FuncType      ::= "INTEGER";
 
 Block         ::= { BlockItem };
 BlockItem     ::= Decl | Stmt;
-Stmt          ::= LVal "=" Exp
+Stmt          ::= LVal "<-" Exp
               | "IF" Exp "THEN" Block ["ELSE" Block] "ENDIF"
               | "RETURN" Exp;
 
 (* Expression *)
 Exp           ::= LOrExp;
 LVal          ::= IDENTIFIER;
-PrimaryExp    ::= "(" Exp ")" | Number;
+PrimaryExp    ::= "(" Exp ")" | Number | LVal;
 UnaryExp      ::= PrimaryExp | UnaryOp UnaryExp;
 UnaryOp       ::= "+" | "-" | "NOT";
 MulExp        ::= UnaryExp | MulExp ("*" | "/" | "DIV" | "MOD") UnaryExp;
