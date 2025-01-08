@@ -47,12 +47,15 @@ public:
 
 class CompUnitNode : public ASTBase {
 public:
-    std::unique_ptr<ASTBase> func_def;
+    std::vector<std::unique_ptr<ASTBase>> items;
 
     void dump() const override {
-        std::cout << "CompUnitNode { ";
-        func_def->dump();
-        std::cout << " }";
+        std::cout << "CompUnitNode {" << std::endl;
+        for (const auto& item : items) {
+            item->dump();
+            std::cout << std::endl;
+        }
+        std::cout << "}";
     }
 };
 

@@ -1,4 +1,4 @@
-CompUnit      ::= FuncDef;
+CompUnit      ::= [CompUnit] (BlockItem | FuncDef);
 
 Number        ::= INT_CONST;
 String        ::= "\"" STR_CONST "\"";

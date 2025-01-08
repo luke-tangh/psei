@@ -64,56 +64,62 @@ using namespace std;
 %%
 
 CompUnit
-    : FuncDef {
+    : /* empty */ {
         auto comp_unit = make_unique<CompUnitNode>();
-        comp_unit->func_def = unique_ptr<ASTBase>($1);
         ast = move(comp_unit);
+    }
+    | CompUnit BlockItem {
+        auto comp_unit = static_cast<CompUnitNode*>(ast.get());
+        comp_unit->items.push_back(unique_ptr<ASTBase>($2));
+    }
+    | CompUnit FuncDef {
+        auto comp_unit = static_cast<CompUnitNode*>(ast.get());
+        comp_unit->items.push_back(unique_ptr<ASTBase>($2));
     }
     ;
 
 Number
     : INT_CONST {
-        auto ast = new NumberNode();
+        auto ast = make_unique<NumberNode>();
         ast->i32 = (int)($1);
-        $$ = ast;
+        $$ = ast.release();
     }
     ;
 
 String
     : STR_CONST {
-        auto ast = new StringNode();
+        auto ast = make_unique<StringNode>();
         ast->str = *unique_ptr<string>($1);
-        $$ = ast;
+        $$ = ast.release();
     }
     ;
 
 Decl
     : ConstDecl {
-        auto ast = new DeclNode();
+        auto ast = make_unique<DeclNode>();
         ast->decl = unique_ptr<ASTBase>($1);
-        $$ = ast;
+        $$ = ast.release();
     }
     | VarDecl {
-        auto ast = new DeclNode();
+        auto ast = make_unique<DeclNode>();
         ast->decl = unique_ptr<ASTBase>($1);
-        $$ = ast;
+        $$ = ast.release();
     }
     ;
 
 BType
     : INTEGER {
-        auto ast = new BTypeNode();
-        ast->type = "INTEGER";
-        $$ = ast;
+        auto ast = make_unique<BTypeNode>();
+        ast->type = DTYPE_INT;
+        $$ = ast.release();
     }
     ;
 
 ConstDecl
     : CONSTANT IDENTIFIER EQ ConstInitVal {
-        auto ast = new ConstDeclNode();
+        auto ast = make_unique<ConstDeclNode>();
         ast->identifier = *unique_ptr<string>($2);
         ast->val = unique_ptr<ASTBase>($4);
-        $$ = ast;
 
         Symbol sym = Symbol(
             ast->identifier,
@@ -123,28 +129,29 @@ ConstDecl
         if (!symTable->insert(sym.name, sym)) {
             yyerror(("Identifier already defined: " + sym.type + " \"" + sym.name + "\"").c_str());
         }
+
+        $$ = ast.release();
     }
     ;
 
 ConstInitVal
     : ConstExp {
-        auto ast = new ConstInitValNode();
+        auto ast = make_unique<ConstInitValNode>();
         ast->val = unique_ptr<ASTBase>($1);
-        $$ = ast;
+        $$ = ast.release();
     }
     | ConstStr {
-        auto ast = new ConstInitValNode();
+        auto ast = make_unique<ConstInitValNode>();
         ast->val = unique_ptr<ASTBase>($1);
-        $$ = ast;
+        $$ = ast.release();
     }
     ;
 
 VarDecl
     : DECLARE IDENTIFIER COL BType {
-        auto ast = new VarDeclNode();
+        auto ast = make_unique<VarDeclNode>();
         ast->identifier = *unique_ptr<string>($2);
         ast->btype = unique_ptr<ASTBase>($4);
-        $$ = ast;
 
         Symbol sym = Symbol(
             ast->identifier,
@@ -154,32 +161,33 @@ VarDecl
         if (!symTable->insert(sym.name, sym)) {
             yyerror(("Identifier already defined: " + sym.type + " \"" + sym.name + "\"").c_str());
         }
+
+        $$ = ast.release();
     }
     ;
 
 ConstExp
     : Exp {
-        auto ast = new ConstExpNode();
+        auto ast = make_unique<ConstExpNode>();
         ast->expr = unique_ptr<ASTBase>($1);
-        $$ = ast;
+        $$ = ast.release();
     }
     ;
 
 ConstStr
     : String {
-        auto ast = new ConstExpNode();
+        auto ast = make_unique<ConstExpNode>();
         ast->expr = unique_ptr<ASTBase>($1);
-        $$ = ast;
+        $$ = ast.release();
     }
     ;
 
 FuncDef
     : FUNCTION IDENTIFIER LBRACE RBRACE RETURNS FuncType Block ENDFUNCTION {
-        auto ast = new FuncDefNode();
+        auto ast = make_unique<FuncDefNode>();
         ast->identifier = *unique_ptr<string>($2);
         ast->func_type = unique_ptr<ASTBase>($6);
         ast->block = unique_ptr<ASTBase>($7);
-        $$ = ast;
 
         Symbol sym = Symbol(
             ast->identifier,
@@ -189,80 +197,85 @@ FuncDef
         if (!symTable->insert(sym.name, sym)) {
             yyerror(("Identifier already defined: " + sym.type + " \"" + sym.name + "\"").c_str());
         }
+
+        $$ = ast.release();
     }
     ;
 
 FuncType
     : INTEGER {
-        auto ast = new FuncTypeNode();
+        auto ast = make_unique<FuncTypeNode>();
         ast->type = DTYPE_INT;
-        $$ = ast;
+        $$ = ast.release();
     }
     ;
 
 Block
     : /* Empty */ {
-        $$ = new BlockNode();
+        auto ast = make_unique<BlockNode>();
+        $$ = ast.release();
     }
-    | {
+    | /* Empty */  {
         symTable->enterScope();
-    } BlockItems {     
-        auto ast = new BlockNode();
-        ast->items = std::move(*$2);
-        delete $2;
-        $$ = ast;
+    } 
+    BlockItems 
+    {     
+        auto ast = make_unique<BlockNode>();
+        ast->items = move(*$2);
+        $$ = ast.release();
+
         symTable->exitScope();
     }
     ;
 
 BlockItems
     : BlockItem {
-        $$ = new std::vector<std::unique_ptr<ASTBase>>();
-        $$->push_back(std::unique_ptr<ASTBase>($1));
+        $$ = new vector<unique_ptr<ASTBase>>();
+        $$->push_back(unique_ptr<ASTBase>($1));
     }
     | BlockItems BlockItem {
         $$ = $1;
-        $$->push_back(std::unique_ptr<ASTBase>($2));
+        $$->push_back(unique_ptr<ASTBase>($2));
     }
     ;
 
 BlockItem
     : Decl {
-        auto ast = new BlockItemNode();
+        auto ast = make_unique<BlockItemNode>();
         ast->stmt = unique_ptr<ASTBase>($1);
-        $$ = ast;
+        $$ = ast.release();
     }
     | Stmt {
-        auto ast = new BlockItemNode();
+        auto ast = make_unique<BlockItemNode>();
         ast->stmt = unique_ptr<ASTBase>($1);
-        $$ = ast;
+        $$ = ast.release();
     }
     ;
 
 Stmt
     : LVal ASSIGN Exp {
-        auto ast = new StmtNodeAssign();
+        auto ast = make_unique<StmtNodeAssign>();
         ast->lval = unique_ptr<ASTBase>($1);
         ast->expr = unique_ptr<ASTBase>($3);
-        $$ = ast;
+        $$ = ast.release();
     }
     | IF Exp THEN Block OptionalElse ENDIF {
-        auto ast = new StmtNodeIf();
+        auto ast = make_unique<StmtNodeIf>();
         ast->cond = unique_ptr<ASTBase>($2);
         ast->ifs = unique_ptr<ASTBase>($4);
         ast->elses = unique_ptr<ASTBase>($5);
-        $$ = ast;
+        $$ = ast.release();
     }
     | WHILE Exp Block ENDWHILE {
-        auto ast = new StmtNodeWhile();
+        auto ast = make_unique<StmtNodeWhile>();
         ast->cond = unique_ptr<ASTBase>($2);
         ast->stmt = unique_ptr<ASTBase>($3);
-        $$ = ast;
+        $$ = ast.release();
     }
     | RETURN Exp {
-        auto ast = new StmtNodeReturn();
+        auto ast = make_unique<StmtNodeReturn>();
         ast->ret = unique_ptr<ASTBase>($2);
-        $$ = ast;
+        $$ = ast.release();
     }
     ;
 
@@ -277,213 +290,213 @@ OptionalElse
 
 Exp
     : LOrExp {
-        auto ast = new ExpNode();
+        auto ast = make_unique<ExpNode>();
         ast->expr = unique_ptr<ASTBase>($1);
-        $$ = ast;
+        $$ = ast.release();
     }
     ;
 
 LVal
     : IDENTIFIER {
-        auto ast = new LValNode();
+        auto ast = make_unique<LValNode>();
         ast->identifier = *unique_ptr<string>($1);
-        $$ = ast;
+        $$ = ast.release();
     }
     ;
 
 PrimaryExp
     : LBRACE Exp RBRACE {
-        auto ast = new PrimaryExpNode();
+        auto ast = make_unique<PrimaryExpNode>();
         ast->expr = unique_ptr<ASTBase>($2);
-        $$ = ast;
+        $$ = ast.release();
     }
     | Number {
-        auto ast = new PrimaryExpNode();
+        auto ast = make_unique<PrimaryExpNode>();
         ast->expr = unique_ptr<ASTBase>($1);
-        $$ = ast;
+        $$ = ast.release();
     }
     | LVal {
-        auto ast = new PrimaryExpNode();
+        auto ast = make_unique<PrimaryExpNode>();
         ast->expr = unique_ptr<ASTBase>($1);
-        $$ = ast;
+        $$ = ast.release();
     }
     ;
 
 UnaryExp
     : PrimaryExp {
-        auto ast = new UnaryExpNodeReduce();
+        auto ast = make_unique<UnaryExpNodeReduce>();
         ast->expr = unique_ptr<ASTBase>($1);
-        $$ = ast;
+        $$ = ast.release();
     }
     | UnaryOp UnaryExp {
-        auto ast = new UnaryExpNodeOp();
+        auto ast = make_unique<UnaryExpNodeOp>();
         ast->op = unique_ptr<ASTBase>($1);
         ast->expr = unique_ptr<ASTBase>($2);
-        $$ = ast;
+        $$ = ast.release();
     }
     ;
 
 UnaryOp
     : ADD {
-        auto ast = new UnaryOpNode();
+        auto ast = make_unique<UnaryOpNode>();
         ast->op = OP_ADD;
-        $$ = ast;
+        $$ = ast.release();
     }
     | SUB {
-        auto ast = new UnaryOpNode();
+        auto ast = make_unique<UnaryOpNode>();
         ast->op = OP_SUB;
-        $$ = ast;
+        $$ = ast.release();
     }
     | NOT {
-        auto ast = new UnaryOpNode();
+        auto ast = make_unique<UnaryOpNode>();
         ast->op = OP_NOT;
-        $$ = ast;
+        $$ = ast.release();
     }
     ;
 
 MulExp
     : UnaryExp {
-        auto ast = new MulExpNodeReduce();
+        auto ast = make_unique<MulExpNodeReduce>();
         ast->expr = unique_ptr<ASTBase>($1);
-        $$ = ast;
+        $$ = ast.release();
     }
     | MulExp MUL UnaryExp {
-        auto ast = new MulExpNodeOp();
+        auto ast = make_unique<MulExpNodeOp>();
         ast->op = OP_MUL;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
-        $$ = ast;
+        $$ = ast.release();
     }
     | MulExp DIV UnaryExp {
-        auto ast = new MulExpNodeOp();
+        auto ast = make_unique<MulExpNodeOp>();
         ast->op = OP_DIV;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
-        $$ = ast;
+        $$ = ast.release();
     }
     | MulExp INTDIV UnaryExp {
-        auto ast = new MulExpNodeOp();
+        auto ast = make_unique<MulExpNodeOp>();
         ast->op = OP_INTDIV;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
-        $$ = ast;
+        $$ = ast.release();
     }
     | MulExp MOD UnaryExp {
-        auto ast = new MulExpNodeOp();
+        auto ast = make_unique<MulExpNodeOp>();
         ast->op = OP_MOD;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
-        $$ = ast;
+        $$ = ast.release();
     }
     ;
 
 AddExp
     : MulExp {
-        auto ast = new AddExpNodeReduce();
+        auto ast = make_unique<AddExpNodeReduce>();
         ast->expr = unique_ptr<ASTBase>($1);
-        $$ = ast;
+        $$ = ast.release();
     }
     | AddExp ADD MulExp {
-        auto ast = new AddExpNodeOp();
+        auto ast = make_unique<AddExpNodeOp>();
         ast->op = OP_ADD;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
-        $$ = ast;
+        $$ = ast.release();
     }
     | AddExp SUB MulExp {
-        auto ast = new AddExpNodeOp();
+        auto ast = make_unique<AddExpNodeOp>();
         ast->op = OP_SUB;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
-        $$ = ast;
+        $$ = ast.release();
     }
     ;
 
 RelExp
     : AddExp {
-        auto ast = new RelExpNodeReduce();
+        auto ast = make_unique<RelExpNodeReduce>();
         ast->expr = unique_ptr<ASTBase>($1);
-        $$ = ast;
+        $$ = ast.release();
     }
     | RelExp LT AddExp {
-        auto ast = new RelExpNodeCompare();
+        auto ast = make_unique<RelExpNodeCompare>();
         ast->op = OP_LT;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
-        $$ = ast;
+        $$ = ast.release();
     }
     | RelExp GT AddExp {
-        auto ast = new RelExpNodeCompare();
+        auto ast = make_unique<RelExpNodeCompare>();
         ast->op = OP_GT;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
-        $$ = ast;
+        $$ = ast.release();
     }
     | RelExp LEQ AddExp {
-        auto ast = new RelExpNodeCompare();
+        auto ast = make_unique<RelExpNodeCompare>();
         ast->op = OP_LEQ;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
-        $$ = ast;
+        $$ = ast.release();
     }
     | RelExp GEQ AddExp {
-        auto ast = new RelExpNodeCompare();
+        auto ast = make_unique<RelExpNodeCompare>();
         ast->op = OP_GEQ;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
-        $$ = ast;
+        $$ = ast.release();
     }
     ;
 
 EqExp
     : RelExp {
-        auto ast = new EqExpNodeReduce();
+        auto ast = make_unique<EqExpNodeReduce>();
         ast->expr = unique_ptr<ASTBase>($1);
-        $$ = ast;
+        $$ = ast.release();
     }
     | EqExp EQ RelExp {
-        auto ast = new EqExpNodeCompare();
+        auto ast = make_unique<EqExpNodeCompare>();
         ast->op = OP_EQ;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
-        $$ = ast;
+        $$ = ast.release();
     }
     | EqExp NEQ RelExp {
-        auto ast = new EqExpNodeCompare();
+        auto ast = make_unique<EqExpNodeCompare>();
         ast->op = OP_NEQ;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
-        $$ = ast;
+        $$ = ast.release();
     }
     ;
 
 LAndExp
     : EqExp {
-        auto ast = new LAndExpNodeReduce();
+        auto ast = make_unique<LAndExpNodeReduce>();
         ast->expr = unique_ptr<ASTBase>($1);
-        $$ = ast;
+        $$ = ast.release();
     }
     | LAndExp AND EqExp {
-        auto ast = new LAndExpNodeLogic();
+        auto ast = make_unique<LAndExpNodeLogic>();
         ast->op = OP_AND;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
-        $$ = ast;
+        $$ = ast.release();
     }
     ;
 
 LOrExp
     : LAndExp {
-        auto ast = new LOrExpNodeReduce();
+        auto ast = make_unique<LOrExpNodeReduce>();
         ast->expr = unique_ptr<ASTBase>($1);
-        $$ = ast;
+        $$ = ast.release();
     }
     | LOrExp OR LAndExp {
-        auto ast = new LOrExpNodeLogic();
+        auto ast = make_unique<LOrExpNodeLogic>();
         ast->op = OP_OR;
         ast->left = unique_ptr<ASTBase>($1);
         ast->right = unique_ptr<ASTBase>($3);
-        $$ = ast;
+        $$ = ast.release();
     }
     ;
 
