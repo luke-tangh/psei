@@ -192,39 +192,35 @@ public:
     }
 };
 
-class ConstExpNode : public ASTBase {
-public:
-    std::unique_ptr<ASTBase> expr;
-
-    void dump() const override {
-        //std::cout << "ConstExpNode { ";
-        expr->dump();
-        //std::cout << " }";
-    }
-};
-
-class ConstStrNode : public ASTBase {
-public:
-    std::unique_ptr<ASTBase> str;
-
-    void dump() const override {
-        //std::cout << "ConstExpNode { ";
-        str->dump();
-        //std::cout << " }";
-    }
-};
-
 class FuncDefNode : public ASTBase {
 public:
     std::string identifier;
     std::unique_ptr<ASTBase> func_type;
+    std::vector<std::unique_ptr<ASTBase>> params;
     std::unique_ptr<ASTBase> block;
 
     void dump() const override {
         std::cout << "FuncDefNode { ";
         func_type->dump();
-        std::cout << ", " << identifier << ", ";
+        std::cout << ", " << identifier << ", " << std::endl;
+        for (const auto& param : params) {
+            param->dump();
+            std::cout << " ";
+        }
+        std::cout << std::endl;
         block->dump();
+        std::cout << " }";
+    }
+};
+
+class ParamNode : public ASTBase {
+public:
+    std::string name;
+    std::unique_ptr<ASTBase> type;
+
+    void dump() const override {
+        std::cout << "ParamNode { " << name << ", ";
+        type->dump();
         std::cout << " }";
     }
 };

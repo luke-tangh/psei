@@ -1,4 +1,4 @@
-FUNCTION main() RETURNS INTEGER
+FUNCTION main(px : INTEGER, py : REAL) RETURNS INTEGER
     // ignore me
     DECLARE foo : INTEGER
     DECLARE bar : INTEGER

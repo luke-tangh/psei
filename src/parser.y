@@ -61,7 +61,7 @@ using namespace std;
 // Reserved Symbols
 %token PLUS MINUS NOT
 %token ASSIGN LBRACE RBRACE ADD SUB MUL DIV INTDIV MOD
-%token LT GT LEQ GEQ EQ NEQ AND OR COL
+%token LT GT LEQ GEQ EQ NEQ AND OR COL COMMA
 
 // Token types with semantic values
 %token <int_val> INT_CONST
@@ -73,9 +73,9 @@ using namespace std;
 // Non-terminal types
 %type <ast_val> Number String Char Boolean Date
 %type <ast_val> Decl BType ConstDecl ConstInitVal VarDecl
-%type <ast_val> FuncDef FuncType Block BlockItem Stmt LVal OptionalElse
+%type <ast_val> FuncDef FuncType Param Block BlockItem Stmt LVal OptionalElse
 %type <ast_val> Exp PrimaryExp UnaryExp UnaryOp MulExp AddExp RelExp EqExp LAndExp LOrExp 
-%type <vec_val> BlockItems
+%type <vec_val> BlockItems ParamList
 
 %%
 
@@ -258,11 +258,12 @@ VarDecl
     ;
 
 FuncDef
-    : FUNCTION IDENTIFIER LBRACE RBRACE RETURNS FuncType Block ENDFUNCTION {
-        auto ast = make_unique<FuncDefNode>();
-        ast->identifier = *unique_ptr<string>($2);
-        ast->func_type = unique_ptr<ASTBase>($6);
-        ast->block = unique_ptr<ASTBase>($7);
+    : FUNCTION IDENTIFIER LBRACE ParamList RBRACE RETURNS FuncType Block ENDFUNCTION {
+        auto ast = std::make_unique<FuncDefNode>();
+        ast->identifier = *$2;
+        ast->params = std::move(*$4);
+        ast->func_type = std::unique_ptr<ASTBase>($7);
+        ast->block = std::unique_ptr<ASTBase>($8);
 
         Symbol sym = Symbol(
             ast->identifier,
@@ -270,10 +271,30 @@ FuncDef
             yylineno
         );
         if (!symTable->insert(sym.name, sym)) {
-            yyerror(("Identifier already defined: " + sym.type + " \"" + sym.name + "\"").c_str());
+            yyerror(("Identifier already defined: " + sym.name).c_str());
         }
 
         $$ = ast.release();
+    }
+    ;
+
+ParamList
+    : Param {
+        $$ = new std::vector<std::unique_ptr<ASTBase>>();
+        $$->push_back(std::unique_ptr<ASTBase>($1));
+    }
+    | ParamList COMMA Param {
+        $$ = $1;
+        $1->push_back(std::unique_ptr<ASTBase>($3));
+    }
+    ;
+
+Param
+    : IDENTIFIER COL BType {
+        auto param = make_unique<ParamNode>();
+        param->name = *unique_ptr<string>($1);
+        param->type = unique_ptr<ASTBase>($3);
+        $$ = param.release();
     }
     ;
 
@@ -281,6 +302,11 @@ FuncType
     : INTEGER {
         auto ast = make_unique<FuncTypeNode>();
         ast->type = DTYPE_INT;
+        $$ = ast.release();
+    }
+    | REAL {
+        auto ast = make_unique<FuncTypeNode>();
+        ast->type = DTYPE_REAL;
         $$ = ast.release();
     }
     ;

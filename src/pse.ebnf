@@ -15,8 +15,11 @@ ConstInitVal  ::= Exp | String | Char | Boolean | Date;
 VarDecl       ::= "DECLARE" IDENTIFIER ":" BType;
 
 (* Function *)
-FuncDef       ::= FUNCTION IDENTIFIER "(" ")" RETURNS FuncType Block ENDFUNCTION;
-FuncType      ::= "INTEGER";
+FuncDef       ::= FUNCTION IDENTIFIER "(" [ ParamList ] ")" RETURNS FuncType Block ENDFUNCTION;
+ParamList     ::= Param { "," Param };
+Param         ::= IDENTIFIER ":" BType;
+FuncType      ::= BType | UserDefType;
+UserDefType   ::= IDENTIFIER;
 
 Block         ::= { BlockItem };
 BlockItem     ::= Decl | Stmt;

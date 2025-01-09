@@ -56,6 +56,7 @@ Date          [0-9]{2}[-/.][0-9]{2}[-/.][0-9]{4}
 "AND"           { return AND; }
 "OR"            { return OR; }
 ":"             { return COL; }
+","             { return COMMA; }
 
 "INTEGER"       { return INTEGER; }
 "REAL"          { return REAL; }
