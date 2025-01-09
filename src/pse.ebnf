@@ -1,16 +1,18 @@
-CompUnit      ::= [CompUnit] (BlockItem | FuncDef);
+CompUnit      ::= {CompUnit} (BlockItem | FuncDef);
 
 Number        ::= INT_CONST;
+Exp           ::= LOrExp;
 String        ::= "\"" STR_CONST "\"";
+Char          ::= "\'" CHAR_CONST "\'";
+Boolean       ::= "TRUE" | "FALSE";
+Date          ::= [0-9]{2}[-/.][0-9]{2}[-/.][0-9]{4};
 
 (* Const & Variable *)
 Decl          ::= ConstDecl | VarDecl;
-BType         ::= "INTEGER";
+BType         ::= "INTEGER" | "REAL" | "CHAR" | "STRING" | "BOOLEAN" | "DATE";
 ConstDecl     ::= "CONSTANT" IDENTIFIER "=" ConstInitVal;
-ConstInitVal  ::= ConstExp | ConstStr;
+ConstInitVal  ::= Exp | String | Char | Boolean | Date;
 VarDecl       ::= "DECLARE" IDENTIFIER ":" BType;
-ConstExp      ::= Exp;
-ConstStr      ::= String;
 
 (* Function *)
 FuncDef       ::= FUNCTION IDENTIFIER "(" ")" RETURNS FuncType Block ENDFUNCTION;
@@ -24,7 +26,6 @@ Stmt          ::= LVal "<-" Exp
               | "RETURN" Exp;
 
 (* Expression *)
-Exp           ::= LOrExp;
 LVal          ::= IDENTIFIER;
 PrimaryExp    ::= "(" Exp ")" | Number | LVal;
 UnaryExp      ::= PrimaryExp | UnaryOp UnaryExp;

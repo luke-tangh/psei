@@ -23,10 +23,14 @@ LineComment   "//".*
 String        \"([^\"]*)\"
 Identifier    [a-zA-Z_][a-zA-Z0-9_]*
 
-/* int repr */
+/* data type repr */
 Decimal       [1-9][0-9]*
 Octal         0[0-7]*
 Hexadecimal   0[xX][0-9a-fA-F]+
+Char          \'.\'
+Float         [+-]?([0-9]*[.])?[0-9]+   
+Boolean       (TRUE|FALSE)
+Date          [0-9]{2}[-/.][0-9]{2}[-/.][0-9]{4}
 
 %%
 
@@ -54,6 +58,11 @@ Hexadecimal   0[xX][0-9a-fA-F]+
 ":"             { return COL; }
 
 "INTEGER"       { return INTEGER; }
+"REAL"          { return REAL; }
+"CHAR"          { return CHAR; }
+"STRING"        { return STRING; }
+"BOOLEAN"       { return BOOLEAN; }
+"DATE"          { return DATE; }
 
 "CONSTANT"      { return CONSTANT; }
 "DECLARE"       { return DECLARE; }
@@ -71,13 +80,17 @@ Hexadecimal   0[xX][0-9a-fA-F]+
 "FUNCTION"      { return FUNCTION; }
 "ENDFUNCTION"   { return ENDFUNCTION; }
 
-{Identifier}    { yylval.str_val = new string(yytext); return IDENTIFIER; }
-
-{String}        { yylval.str_val = new std::string(yytext + 1, yyleng - 2); return STR_CONST; }
-
 {Decimal}       { yylval.int_val = strtol(yytext, nullptr, 0); return INT_CONST; }
 {Octal}         { yylval.int_val = strtol(yytext, nullptr, 0); return INT_CONST; }
 {Hexadecimal}   { yylval.int_val = strtol(yytext, nullptr, 0); return INT_CONST; }
+
+{Float}         { yylval.float_val = strtof(yytext, nullptr); return REAL_CONST; }
+{Char}          { yylval.int_val = yytext[1]; return CHAR_CONST; }
+{String}        { yylval.str_val = new std::string(yytext + 1, yyleng - 2); return STR_CONST; }
+{Boolean}       { yylval.int_val = (std::string(yytext) == "TRUE") ? true : false; return BOOL_CONST; }
+{Date}          { yylval.str_val = new std::string(yytext); return DATE_CONST; }
+
+{Identifier}    { yylval.str_val = new string(yytext); return IDENTIFIER; }
 
 .               { return yytext[0]; }
 

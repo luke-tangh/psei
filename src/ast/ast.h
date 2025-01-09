@@ -5,9 +5,14 @@
 #include <string>
 #include <memory>
 #include <vector>
+#include <variant>
 
-#define DTYPE_INT "INTEGER"
-#define DTYPE_STR "STRING"
+#define DTYPE_INT  "INTEGER"
+#define DTYPE_REAL "REAL"
+#define DTYPE_CHAR "CHAR"
+#define DTYPE_STR  "STRING"
+#define DTYPE_BOOL "BOOLEAN"
+#define DTYPE_DATE "DATE"
 
 #define STYPE_VAR   "VARIABLE"
 #define STYPE_CONST "CONSTANT"
@@ -61,12 +66,26 @@ public:
 
 class NumberNode : public ASTBase {
 public:
-    int32_t i32;
+    std::variant<int32_t, float> value;
+
+    explicit NumberNode(int32_t int_val) : value(int_val) {}
+    explicit NumberNode(float float_val) : value(float_val) {}
 
     void dump() const override {
-        //std::cout << "NumberNode { ";
-        std::cout << i32;
-        //std::cout << " }";
+        std::visit([](auto&& arg) {
+            std::cout << arg;
+        }, value);
+    }
+};
+
+class ExpNode : public ASTBase {
+public:
+    std::unique_ptr<ASTBase> expr;
+
+    void dump() const override {
+        std::cout << "ExpNode { ";
+        expr->dump();
+        std::cout << " }";
     }
 };
 
@@ -77,6 +96,39 @@ public:
     void dump() const override {
         //std::cout << "StringNode { ";
         std::cout << "\"" << str << "\"";
+        //std::cout << " }";
+    }
+};
+
+class CharNode : public ASTBase {
+public:
+    char c;
+
+    void dump() const override {
+        //std::cout << "CharNode { ";
+        std::cout << "\'" << c << "\'";
+        //std::cout << " }";
+    }
+};
+
+class BooleanNode : public ASTBase {
+public:
+    bool val;
+
+    void dump() const override {
+        //std::cout << "BooleanNode { ";
+        std::cout << val;
+        //std::cout << " }";
+    }
+};
+
+class DateNode : public ASTBase {
+public:
+    std::string date;
+
+    void dump() const override {
+        //std::cout << "DateNode { ";
+        std::cout << date;
         //std::cout << " }";
     }
 };
@@ -234,11 +286,11 @@ public:
     std::unique_ptr<ASTBase> elses;
 
     void dump() const override {
-        std::cout << "StmtNodeIf { ";
+        std::cout << "StmtNodeIf { " << std::endl;
         cond->dump();
-        std::cout << ", ";
+        std::cout << ", " << std::endl;
         ifs->dump();
-        std::cout << ", ";
+        std::cout << ", " << std::endl;
         if(elses) elses->dump();
         std::cout << " }";
     }
@@ -250,9 +302,9 @@ public:
     std::unique_ptr<ASTBase> stmt;
 
     void dump() const override {
-        std::cout << "StmtNodeWhile { ";
+        std::cout << "StmtNodeWhile { " << std::endl;
         cond->dump();
-        std::cout << ", ";
+        std::cout << ", " << std::endl;
         stmt->dump();
         std::cout << " }";
     }
@@ -265,17 +317,6 @@ public:
     void dump() const override {
         std::cout << "StmtNodeReturn { ";
         ret->dump();
-        std::cout << " }";
-    }
-};
-
-class ExpNode : public ASTBase {
-public:
-    std::unique_ptr<ASTBase> expr;
-
-    void dump() const override {
-        std::cout << "ExpNode { ";
-        expr->dump();
         std::cout << " }";
     }
 };

@@ -35,30 +35,46 @@ using namespace std;
 
 %union {
     int int_val;
+    float float_val;
+    char char_val;
+    bool bool_val;
     std::string *str_val;
     ASTBase *ast_val;
     std::vector<std::unique_ptr<ASTBase>> *vec_val;
 }
 
-%token INTEGER
+// Data types
+%token INTEGER REAL CHAR STRING BOOLEAN DATE
+
+// Initialisation
 %token DECLARE CONSTANT
 
+// IF
 %token IF THEN ELSE ENDIF
+
+// WHILE
 %token WHILE ENDWHILE
+
+// FUNCTION
 %token FUNCTION ENDFUNCTION RETURN RETURNS
 
+// Reserved Symbols
 %token PLUS MINUS NOT
 %token ASSIGN LBRACE RBRACE ADD SUB MUL DIV INTDIV MOD
 %token LT GT LEQ GEQ EQ NEQ AND OR COL
 
-%token <str_val> STR_CONST IDENTIFIER
+// Token types with semantic values
 %token <int_val> INT_CONST
+%token <float_val> REAL_CONST
+%token <char_val> CHAR_CONST
+%token <str_val> STR_CONST DATE_CONST IDENTIFIER
+%token <bool_val> BOOL_CONST
 
-%type <ast_val> Number String
-%type <ast_val> Decl BType ConstDecl ConstInitVal VarDecl ConstExp ConstStr
+// Non-terminal types
+%type <ast_val> Number String Char Boolean Date
+%type <ast_val> Decl BType ConstDecl ConstInitVal VarDecl
 %type <ast_val> FuncDef FuncType Block BlockItem Stmt LVal OptionalElse
 %type <ast_val> Exp PrimaryExp UnaryExp UnaryOp MulExp AddExp RelExp EqExp LAndExp LOrExp 
-
 %type <vec_val> BlockItems
 
 %%
@@ -80,8 +96,19 @@ CompUnit
 
 Number
     : INT_CONST {
-        auto ast = make_unique<NumberNode>();
-        ast->i32 = (int)($1);
+        auto ast = make_unique<NumberNode>((int)($1));
+        $$ = ast.release();
+    }
+    | REAL_CONST {
+        auto ast = make_unique<NumberNode>((float)($1));
+        $$ = ast.release();
+    }
+    ;
+
+Exp
+    : LOrExp {
+        auto ast = make_unique<ExpNode>();
+        ast->expr = unique_ptr<ASTBase>($1);
         $$ = ast.release();
     }
     ;
@@ -90,6 +117,30 @@ String
     : STR_CONST {
         auto ast = make_unique<StringNode>();
         ast->str = *unique_ptr<string>($1);
+        $$ = ast.release();
+    }
+    ;
+
+Char
+    : CHAR_CONST {
+        auto ast = make_unique<CharNode>();
+        ast->c = (char)($1);
+        $$ = ast.release();
+    }
+    ;
+
+Boolean
+    : BOOL_CONST {
+        auto ast = make_unique<BooleanNode>();
+        ast->val = (bool)($1);
+        $$ = ast.release();
+    }
+    ;
+
+Date
+    : DATE_CONST {
+        auto ast = make_unique<DateNode>();
+        ast->date = *unique_ptr<string>($1);
         $$ = ast.release();
     }
     ;
@@ -111,6 +162,31 @@ BType
     : INTEGER {
         auto ast = make_unique<BTypeNode>();
         ast->type = DTYPE_INT;
+        $$ = ast.release();
+    }
+    | REAL {
+        auto ast = make_unique<BTypeNode>();
+        ast->type = DTYPE_REAL;
+        $$ = ast.release();
+    }
+    | CHAR {
+        auto ast = make_unique<BTypeNode>();
+        ast->type = DTYPE_CHAR;
+        $$ = ast.release();
+    }
+    | STRING {
+        auto ast = make_unique<BTypeNode>();
+        ast->type = DTYPE_STR;
+        $$ = ast.release();
+    }
+    | BOOLEAN {
+        auto ast = make_unique<BTypeNode>();
+        ast->type = DTYPE_BOOL;
+        $$ = ast.release();
+    }
+    | DATE {
+        auto ast = make_unique<BTypeNode>();
+        ast->type = DTYPE_DATE;
         $$ = ast.release();
     }
     ;
@@ -135,12 +211,27 @@ ConstDecl
     ;
 
 ConstInitVal
-    : ConstExp {
+    : Exp {
         auto ast = make_unique<ConstInitValNode>();
         ast->val = unique_ptr<ASTBase>($1);
         $$ = ast.release();
     }
-    | ConstStr {
+    | String {
+        auto ast = make_unique<ConstInitValNode>();
+        ast->val = unique_ptr<ASTBase>($1);
+        $$ = ast.release();
+    }
+    | Char {
+        auto ast = make_unique<ConstInitValNode>();
+        ast->val = unique_ptr<ASTBase>($1);
+        $$ = ast.release();
+    }
+    | Boolean {
+        auto ast = make_unique<ConstInitValNode>();
+        ast->val = unique_ptr<ASTBase>($1);
+        $$ = ast.release();
+    }
+    | Date {
         auto ast = make_unique<ConstInitValNode>();
         ast->val = unique_ptr<ASTBase>($1);
         $$ = ast.release();
@@ -162,22 +253,6 @@ VarDecl
             yyerror(("Identifier already defined: " + sym.type + " \"" + sym.name + "\"").c_str());
         }
 
-        $$ = ast.release();
-    }
-    ;
-
-ConstExp
-    : Exp {
-        auto ast = make_unique<ConstExpNode>();
-        ast->expr = unique_ptr<ASTBase>($1);
-        $$ = ast.release();
-    }
-    ;
-
-ConstStr
-    : String {
-        auto ast = make_unique<ConstExpNode>();
-        ast->expr = unique_ptr<ASTBase>($1);
         $$ = ast.release();
     }
     ;
@@ -285,14 +360,6 @@ OptionalElse
     }
     | /* Empty */ {
         $$ = nullptr; 
-    }
-    ;
-
-Exp
-    : LOrExp {
-        auto ast = make_unique<ExpNode>();
-        ast->expr = unique_ptr<ASTBase>($1);
-        $$ = ast.release();
     }
     ;
 

@@ -2,7 +2,9 @@ FUNCTION main() RETURNS INTEGER
     // ignore me
     DECLARE foo : INTEGER
     DECLARE bar : INTEGER
+    DECLARE rar : REAL
     CONSTANT yoo = 13
     CONSTANT poo = "YOOO~"
-    RETURN 1 + 2 * -3
+    CONSTANT uoo = 12.345
+    RETURN 1 + 2 * 3
 ENDFUNCTION

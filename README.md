@@ -8,6 +8,9 @@ cmake ..
 
 ```
 make
-./PseI -o ../examples/hello.pse -o hello.txt
-./PseI -o ../examples/if.pse -o hello.txt
+./PseI ../examples/hello.pse --show-ast --show-st
+./PseI ../examples/if.pse --show-ast --show-st
+./PseI ../examples/while.pse --show-ast --show-st
+./PseI ../examples/scope.pse --show-ast --show-st
+./PseI ../examples/datatypes.pse --show-ast --show-st
 ```

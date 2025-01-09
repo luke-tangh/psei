@@ -1,6 +1,5 @@
-#include <cassert>
-#include <cstdio>
 #include <iostream>
+#include <cassert>
 #include <memory>
 #include <string>
 
@@ -11,23 +10,43 @@ extern FILE *yyin;
 extern int yyparse(std::unique_ptr<ASTBase> &ast, std::unique_ptr<SymbolTable> &symTable);
 
 int main(int argc, const char *argv[]) {
-    // compiler mode input -o output
-    assert(argc == 5);
-    //auto mode = argv[1];
-    auto input = argv[2];
-    //auto output = argv[4];
+    if (argc < 2) {
+        std::cerr << "Usage: PseI <input> [--show-ast] [--show-st]" << std::endl;
+        return 1;
+    }
+
+    const char* input = argv[1];
+
+    bool showAST = false;
+    bool showST = false;
+
+    for (int i = 2; i < argc; ++i) {
+        if (std::string(argv[i]) == "--show-ast") {
+            showAST = true;
+        } 
+        else if (std::string(argv[i]) == "--show-st") {
+            showST = true;
+        }
+    }
 
     yyin = fopen(input, "r");
     assert(yyin);
 
+    // Parse using Bison
     std::unique_ptr<ASTBase> ast;
     std::unique_ptr<SymbolTable> symTable = std::make_unique<SymbolTable>();
     auto ret = yyparse(ast, symTable);
     assert(!ret);
 
-    ast->dump();
-    symTable->dump();
-    std::cout << std::endl;
+    if (showAST) {
+        ast->dump();
+        std::cout << std::endl;
+    }
+
+    if (showST) {
+        symTable->dump();
+        std::cout << std::endl;
+    }
 
     return 0;
 }
