@@ -1,0 +1,5 @@
+Total <- 0
+FOR Row <- 1 TO MaxRow 
+    RowTotal <- 0
+    Total <- Total + RowTotal
+NEXT Row

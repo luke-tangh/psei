@@ -3,7 +3,7 @@ CompUnit      ::= {CompUnit} (BlockItem | FuncDef);
 Number        ::= INT_CONST;
 Exp           ::= LOrExp;
 String        ::= "\"" STR_CONST "\"";
-Char          ::= "\'" CHAR_CONST "\'";
+Char          ::= "'" CHAR_CONST "'";
 Boolean       ::= "TRUE" | "FALSE";
 Date          ::= [0-9]{2}[-/.][0-9]{2}[-/.][0-9]{4};
 
@@ -25,12 +25,14 @@ Block         ::= { BlockItem };
 BlockItem     ::= Decl | Stmt;
 Stmt          ::= LVal "<-" Exp
               | "IF" Exp "THEN" Block ["ELSE" Block] "ENDIF"
+              | "FOR" IDENTIFIER "<-" Exp "TO" Exp ["STEP" Exp] Block "NEXT" IDENTIFIER
+              | "REPEAT" Block "UNTIL" Exp
               | "WHILE" Exp Block "ENDWHILE"
               | "RETURN" Exp;
 
 (* Expression *)
 LVal          ::= IDENTIFIER;
-PrimaryExp    ::= "(" Exp ")" | Number | LVal;
+PrimaryExp    ::= "(" Exp ")" | Number | String | LVal;
 UnaryExp      ::= PrimaryExp | UnaryOp UnaryExp;
 UnaryOp       ::= "+" | "-" | "NOT";
 MulExp        ::= UnaryExp | MulExp ("*" | "/" | "DIV" | "MOD") UnaryExp;

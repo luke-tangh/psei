@@ -1,0 +1,3 @@
+REPEAT
+    Password <- "Secret"
+UNTIL Password = "Secret"

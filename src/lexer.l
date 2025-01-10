@@ -73,6 +73,12 @@ Date          [0-9]{2}[-/.][0-9]{2}[-/.][0-9]{4}
 "ELSE"          { return ELSE; }
 "ENDIF"         { return ENDIF; }
 
+"FOR"           { return FOR; }
+"TO"            { return TO; }
+"STEP"          { return STEP; }
+"NEXT"          { return NEXT; }
+"REPEAT"        { return REPEAT; }
+"UNTIL"         { return UNTIL; }
 "WHILE"         { return WHILE; }
 "ENDWHILE"      { return ENDWHILE; }
 

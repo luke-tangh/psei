@@ -292,16 +292,51 @@ public:
     }
 };
 
+class StmtNodeFor : public ASTBase {
+public:
+    std::string identifier;
+    std::unique_ptr<ASTBase> startExpr;
+    std::unique_ptr<ASTBase> endExpr;
+    std::unique_ptr<ASTBase> stepExpr;
+    std::unique_ptr<ASTBase> block;
+
+    void dump() const override {
+        std::cout << "StmtNodeFor { " << identifier << " from ";
+        startExpr->dump();
+        std::cout << " to ";
+        endExpr->dump();
+        std::cout << " step ";
+        if (stepExpr) stepExpr->dump();
+        std::cout << std::endl;
+        block->dump();
+        std::cout << " }";
+    }
+};
+
+class StmtNodeRepeat : public ASTBase {
+public:
+    std::unique_ptr<ASTBase> cond;
+    std::unique_ptr<ASTBase> block;
+
+    void dump() const override {
+        std::cout << "StmtNodeRepeat { " << std::endl;
+        cond->dump();
+        std::cout << ", " << std::endl;
+        block->dump();
+        std::cout << " }";
+    }
+};
+
 class StmtNodeWhile : public ASTBase {
 public:
     std::unique_ptr<ASTBase> cond;
-    std::unique_ptr<ASTBase> stmt;
+    std::unique_ptr<ASTBase> block;
 
     void dump() const override {
         std::cout << "StmtNodeWhile { " << std::endl;
         cond->dump();
         std::cout << ", " << std::endl;
-        stmt->dump();
+        block->dump();
         std::cout << " }";
     }
 };

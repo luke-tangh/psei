@@ -31,8 +31,8 @@
   - [x] IF statements
   - [ ] CASE statements
 7. Iteration (repetition)
-  - [ ] Count-controlled (FOR) loops
-  - [ ] Post-condition (REPEAT) loops
+  - [x] Count-controlled (FOR) loops
+  - [x] Post-condition (REPEAT) loops
   - [x] Pre-condition (WHILE) loops
 8. Procedures and functions
   - [ ] Defining and calling procedures
@@ -55,11 +55,6 @@ cmake ..
 
 ```
 make
-./PseI ../examples/hello.pse --show-ast --show-st
-./PseI ../examples/if.pse --show-ast --show-st
-./PseI ../examples/while.pse --show-ast --show-st
-./PseI ../examples/scope.pse --show-ast --show-st
-./PseI ../examples/datatypes.pse --show-ast --show-st
+./PseI ../examples/types.pse --show-ast --show-st
+...
 ```
-
-

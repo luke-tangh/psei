@@ -52,7 +52,9 @@ using namespace std;
 // IF
 %token IF THEN ELSE ENDIF
 
-// WHILE
+// LOOPS
+%token FOR TO STEP NEXT
+%token REPEAT UNTIL
 %token WHILE ENDWHILE
 
 // FUNCTION
@@ -73,7 +75,8 @@ using namespace std;
 // Non-terminal types
 %type <ast_val> Number String Char Boolean Date
 %type <ast_val> Decl BType ConstDecl ConstInitVal VarDecl
-%type <ast_val> FuncDef FuncType Param Block BlockItem Stmt LVal OptionalElse
+%type <ast_val> FuncDef FuncType Param Block BlockItem Stmt LVal
+%type <ast_val> OptionalElse OptionalStep
 %type <ast_val> Exp PrimaryExp UnaryExp UnaryOp MulExp AddExp RelExp EqExp LAndExp LOrExp 
 %type <vec_val> BlockItems ParamList
 
@@ -260,7 +263,7 @@ VarDecl
 FuncDef
     : FUNCTION IDENTIFIER LBRACE ParamList RBRACE RETURNS FuncType Block ENDFUNCTION {
         auto ast = std::make_unique<FuncDefNode>();
-        ast->identifier = *$2;
+        ast->identifier = *unique_ptr<string>($2);
         ast->params = std::move(*$4);
         ast->func_type = std::unique_ptr<ASTBase>($7);
         ast->block = std::unique_ptr<ASTBase>($8);
@@ -367,10 +370,30 @@ Stmt
         ast->elses = unique_ptr<ASTBase>($5);
         $$ = ast.release();
     }
+    | FOR IDENTIFIER ASSIGN Exp TO Exp OptionalStep Block NEXT IDENTIFIER {
+        if (*$2 != *$10) {
+            yyerror("Identifiers in 'FOR' and 'NEXT' do not match");
+        }
+
+        auto ast = std::make_unique<StmtNodeFor>();
+        ast->identifier = *unique_ptr<string>($2);
+        ast->startExpr = std::unique_ptr<ASTBase>($4);
+        ast->endExpr = std::unique_ptr<ASTBase>($6);
+        ast->stepExpr = std::unique_ptr<ASTBase>($7);
+        ast->block = std::unique_ptr<ASTBase>($8);
+        
+        $$ = ast.release();
+    }
+    | REPEAT Block UNTIL Exp {
+        auto ast = make_unique<StmtNodeRepeat>();
+        ast->block = unique_ptr<ASTBase>($2);
+        ast->cond = unique_ptr<ASTBase>($4);
+        $$ = ast.release();
+    }
     | WHILE Exp Block ENDWHILE {
         auto ast = make_unique<StmtNodeWhile>();
         ast->cond = unique_ptr<ASTBase>($2);
-        ast->stmt = unique_ptr<ASTBase>($3);
+        ast->block = unique_ptr<ASTBase>($3);
         $$ = ast.release();
     }
     | RETURN Exp {
@@ -382,6 +405,15 @@ Stmt
 
 OptionalElse
     : ELSE Block { 
+        $$ = $2; 
+    }
+    | /* Empty */ {
+        $$ = nullptr; 
+    }
+    ;
+
+OptionalStep
+    : STEP Exp {
         $$ = $2; 
     }
     | /* Empty */ {
@@ -404,6 +436,11 @@ PrimaryExp
         $$ = ast.release();
     }
     | Number {
+        auto ast = make_unique<PrimaryExpNode>();
+        ast->expr = unique_ptr<ASTBase>($1);
+        $$ = ast.release();
+    }
+    | String {
         auto ast = make_unique<PrimaryExpNode>();
         ast->expr = unique_ptr<ASTBase>($1);
         $$ = ast.release();
