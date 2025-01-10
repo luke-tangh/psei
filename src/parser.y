@@ -2,6 +2,7 @@
     #include <memory>
     #include <string>
     #include "ast/ast.h"
+    #include "ast/serrors.h"
     #include "ast/symbol.h"
 }
 
@@ -11,6 +12,7 @@
 #include <memory>
 #include <string>
 #include "ast/ast.h"
+#include "ast/serrors.h"
 #include "ast/symbol.h"
 
 extern int yylineno;
@@ -74,7 +76,7 @@ using namespace std;
 
 // Non-terminal types
 %type <ast_val> Number String Char Boolean Date
-%type <ast_val> Decl BType ConstDecl ConstInitVal VarDecl
+%type <ast_val> Decl BType ConstDecl VarDecl
 %type <ast_val> FuncDef FuncType Param Block BlockItem Stmt LVal
 %type <ast_val> OptionalElse OptionalStep
 %type <ast_val> Exp PrimaryExp UnaryExp UnaryOp MulExp AddExp RelExp EqExp LAndExp LOrExp 
@@ -195,7 +197,7 @@ BType
     ;
 
 ConstDecl
-    : CONSTANT IDENTIFIER EQ ConstInitVal {
+    : CONSTANT IDENTIFIER EQ Exp {
         auto ast = make_unique<ConstDeclNode>();
         ast->identifier = *unique_ptr<string>($2);
         ast->val = unique_ptr<ASTBase>($4);
@@ -206,37 +208,9 @@ ConstDecl
             yylineno
         );
         if (!symTable->insert(sym.name, sym)) {
-            yyerror(("Identifier already defined: " + sym.type + " \"" + sym.name + "\"").c_str());
+            semanticError(ErrorType::IdentifierAlreadyDefined, sym.name, yylineno);
         }
 
-        $$ = ast.release();
-    }
-    ;
-
-ConstInitVal
-    : Exp {
-        auto ast = make_unique<ConstInitValNode>();
-        ast->val = unique_ptr<ASTBase>($1);
-        $$ = ast.release();
-    }
-    | String {
-        auto ast = make_unique<ConstInitValNode>();
-        ast->val = unique_ptr<ASTBase>($1);
-        $$ = ast.release();
-    }
-    | Char {
-        auto ast = make_unique<ConstInitValNode>();
-        ast->val = unique_ptr<ASTBase>($1);
-        $$ = ast.release();
-    }
-    | Boolean {
-        auto ast = make_unique<ConstInitValNode>();
-        ast->val = unique_ptr<ASTBase>($1);
-        $$ = ast.release();
-    }
-    | Date {
-        auto ast = make_unique<ConstInitValNode>();
-        ast->val = unique_ptr<ASTBase>($1);
         $$ = ast.release();
     }
     ;
@@ -253,7 +227,7 @@ VarDecl
             yylineno
         );
         if (!symTable->insert(sym.name, sym)) {
-            yyerror(("Identifier already defined: " + sym.type + " \"" + sym.name + "\"").c_str());
+            semanticError(ErrorType::IdentifierAlreadyDefined, sym.name, yylineno);
         }
 
         $$ = ast.release();
@@ -274,7 +248,7 @@ FuncDef
             yylineno
         );
         if (!symTable->insert(sym.name, sym)) {
-            yyerror(("Identifier already defined: " + sym.name).c_str());
+            semanticError(ErrorType::IdentifierAlreadyDefined, sym.name, yylineno);
         }
 
         $$ = ast.release();
@@ -372,7 +346,7 @@ Stmt
     }
     | FOR IDENTIFIER ASSIGN Exp TO Exp OptionalStep Block NEXT IDENTIFIER {
         if (*$2 != *$10) {
-            yyerror("Identifiers in 'FOR' and 'NEXT' do not match");
+            semanticError(ErrorType::IdentifiersDontMatch, (*$2), yylineno);
         }
 
         auto ast = std::make_unique<StmtNodeFor>();
@@ -441,6 +415,21 @@ PrimaryExp
         $$ = ast.release();
     }
     | String {
+        auto ast = make_unique<PrimaryExpNode>();
+        ast->expr = unique_ptr<ASTBase>($1);
+        $$ = ast.release();
+    }
+    | Char {
+        auto ast = make_unique<PrimaryExpNode>();
+        ast->expr = unique_ptr<ASTBase>($1);
+        $$ = ast.release();
+    }
+    | Boolean {
+        auto ast = make_unique<PrimaryExpNode>();
+        ast->expr = unique_ptr<ASTBase>($1);
+        $$ = ast.release();
+    }
+    | Date {
         auto ast = make_unique<PrimaryExpNode>();
         ast->expr = unique_ptr<ASTBase>($1);
         $$ = ast.release();
