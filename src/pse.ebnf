@@ -19,7 +19,6 @@ ArrRange      ::= Exp ":" Exp;
 FuncDef       ::= FUNCTION IDENTIFIER "(" [ ParamList ] ")" RETURNS FuncType Block ENDFUNCTION;
 ParamList     ::= Param { "," Param };
 Param         ::= IDENTIFIER ":" BType;
-FuncType      ::= BType | UserDefType;
 UserDefType   ::= IDENTIFIER;
 
 Block         ::= { BlockItem };

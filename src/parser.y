@@ -76,7 +76,7 @@ void yyerror(
 // Non-terminal types
 %type <ast_val> Number String Char Boolean Date
 %type <ast_val> Decl BType ConstDecl VarDecl ArrRange
-%type <ast_val> FuncDef FuncType ParamList Param Block BlockItem Stmt LVal
+%type <ast_val> FuncDef ParamList Param Block BlockItem Stmt LVal
 %type <ast_val> OptionalElse OptionalStep
 %type <ast_val> Exp PrimaryExp UnaryExp UnaryOp MulExp AddExp RelExp EqExp LAndExp LOrExp 
 %type <vec_val> ArrRangeList BlockItems Params Index
@@ -271,7 +271,7 @@ ArrRange
     ;
 
 FuncDef
-    : FUNCTION IDENTIFIER LBRACE ParamList RBRACE RETURNS FuncType Block ENDFUNCTION {
+    : FUNCTION IDENTIFIER LBRACE ParamList RBRACE RETURNS BType Block ENDFUNCTION {
         auto ast = std::make_unique<FuncDefNode>();
         ast->identifier = *std::unique_ptr<std::string>($2);
         ast->param = std::unique_ptr<ASTBase>($4);
@@ -318,19 +318,6 @@ Param
         param->name = *std::unique_ptr<std::string>($1);
         param->type = std::unique_ptr<ASTBase>($3);
         $$ = param.release();
-    }
-    ;
-
-FuncType
-    : INTEGER {
-        auto ast = std::make_unique<FuncTypeNode>();
-        ast->type = DTYPE_INT;
-        $$ = ast.release();
-    }
-    | REAL {
-        auto ast = std::make_unique<FuncTypeNode>();
-        ast->type = DTYPE_REAL;
-        $$ = ast.release();
     }
     ;
 
@@ -659,7 +646,7 @@ LAndExp
         $$ = ast.release();
     }
     | LAndExp AND EqExp {
-        auto ast = std::make_unique<LAndExpNodeLogic>();
+        auto ast = std::make_unique<LAndExpNodeOp>();
         ast->op = OP_AND;
         ast->left = std::unique_ptr<ASTBase>($1);
         ast->right = std::unique_ptr<ASTBase>($3);
@@ -674,7 +661,7 @@ LOrExp
         $$ = ast.release();
     }
     | LOrExp OR LAndExp {
-        auto ast = std::make_unique<LOrExpNodeLogic>();
+        auto ast = std::make_unique<LOrExpNodeOp>();
         ast->op = OP_OR;
         ast->left = std::unique_ptr<ASTBase>($1);
         ast->right = std::unique_ptr<ASTBase>($3);
