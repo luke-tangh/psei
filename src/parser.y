@@ -50,6 +50,7 @@ using namespace std;
 
 // Initialisation
 %token DECLARE CONSTANT
+%token ARRAY OF
 
 // IF
 %token IF THEN ELSE ENDIF
@@ -64,7 +65,7 @@ using namespace std;
 
 // Reserved Symbols
 %token PLUS MINUS NOT
-%token ASSIGN LBRACE RBRACE ADD SUB MUL DIV INTDIV MOD
+%token ASSIGN LBRACE RBRACE LSBRAC RSBRAC ADD SUB MUL DIV INTDIV MOD
 %token LT GT LEQ GEQ EQ NEQ AND OR COL COMMA
 
 // Token types with semantic values
@@ -76,11 +77,11 @@ using namespace std;
 
 // Non-terminal types
 %type <ast_val> Number String Char Boolean Date
-%type <ast_val> Decl BType ConstDecl VarDecl
-%type <ast_val> FuncDef FuncType Param Block BlockItem Stmt LVal
+%type <ast_val> Decl BType ConstDecl VarDecl ArrRange
+%type <ast_val> FuncDef FuncType ParamList Param Block BlockItem Stmt LVal
 %type <ast_val> OptionalElse OptionalStep
 %type <ast_val> Exp PrimaryExp UnaryExp UnaryOp MulExp AddExp RelExp EqExp LAndExp LOrExp 
-%type <vec_val> BlockItems ParamList
+%type <vec_val> ArrRangeList BlockItems Params
 
 %%
 
@@ -232,13 +233,50 @@ VarDecl
 
         $$ = ast.release();
     }
+    | DECLARE IDENTIFIER COL ARRAY LSBRAC ArrRangeList RSBRAC OF BType {
+        auto ast = make_unique<VarDeclNodeArray>();
+        ast->identifier = *unique_ptr<string>($2);
+        ast->btype = unique_ptr<ASTBase>($9);
+        ast->ranges = move(*$6);
+
+        Symbol sym = Symbol(
+            ast->identifier,
+            STYPE_VAR,
+            yylineno
+        );
+        if (!symTable->insert(sym.name, sym)) {
+            semanticError(ErrorType::IdentifierAlreadyDefined, sym.name, yylineno);
+        }
+
+        $$ = ast.release();
+    }
+    ;
+
+ArrRangeList
+    : ArrRange {
+        $$ = new std::vector<std::unique_ptr<ASTBase>>();
+        $$->push_back(std::unique_ptr<ASTBase>($1));
+    }
+    | ArrRangeList COMMA ArrRange {
+        $$ = $1;
+        $1->push_back(std::unique_ptr<ASTBase>($3));
+    }
+    ;
+
+ArrRange
+    : Exp COL Exp {
+        auto ast = make_unique<ArrRangeNode>();
+        ast->start = unique_ptr<ASTBase>($1);
+        ast->end = unique_ptr<ASTBase>($3);
+        $$ = ast.release();
+    }
     ;
 
 FuncDef
     : FUNCTION IDENTIFIER LBRACE ParamList RBRACE RETURNS FuncType Block ENDFUNCTION {
         auto ast = std::make_unique<FuncDefNode>();
-        ast->identifier = *unique_ptr<string>($2);
-        ast->params = std::move(*$4);
+        ast->identifier = *std::unique_ptr<string>($2);
+        ast->param = std::unique_ptr<ASTBase>($4);
         ast->func_type = std::unique_ptr<ASTBase>($7);
         ast->block = std::unique_ptr<ASTBase>($8);
 
@@ -256,11 +294,21 @@ FuncDef
     ;
 
 ParamList
+    : /* empty */ {
+        $$ = nullptr;
+    }
+    | Params {
+        auto ast = make_unique<ParamListNode>();
+        ast->params = move(*$1);
+        $$ = ast.release();
+    }
+
+Params
     : Param {
         $$ = new std::vector<std::unique_ptr<ASTBase>>();
         $$->push_back(std::unique_ptr<ASTBase>($1));
     }
-    | ParamList COMMA Param {
+    | Params COMMA Param {
         $$ = $1;
         $1->push_back(std::unique_ptr<ASTBase>($3));
     }

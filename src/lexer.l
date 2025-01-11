@@ -40,6 +40,8 @@ Date          [0-9]{2}[-/.][0-9]{2}[-/.][0-9]{4}
 "<-"            { return ASSIGN; }
 "("             { return LBRACE; }
 ")"             { return RBRACE; }
+"["             { return LSBRAC; }
+"]"             { return RSBRAC; }
 "+"             { return ADD; }
 "-"             { return SUB; }
 "NOT"           { return NOT; }
@@ -67,6 +69,8 @@ Date          [0-9]{2}[-/.][0-9]{2}[-/.][0-9]{4}
 
 "CONSTANT"      { return CONSTANT; }
 "DECLARE"       { return DECLARE; }
+"ARRAY"         { return ARRAY; }
+"OF"            { return OF; }
 
 "IF"            { return IF; }
 "THEN"          { return THEN; }

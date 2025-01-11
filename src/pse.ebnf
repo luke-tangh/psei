@@ -11,7 +11,9 @@ Date          ::= [0-9]{2}[-/.][0-9]{2}[-/.][0-9]{4};
 Decl          ::= ConstDecl | VarDecl;
 BType         ::= "INTEGER" | "REAL" | "CHAR" | "STRING" | "BOOLEAN" | "DATE";
 ConstDecl     ::= "CONSTANT" IDENTIFIER "=" Exp;
-VarDecl       ::= "DECLARE" IDENTIFIER ":" BType;
+VarDecl       ::= "DECLARE" IDENTIFIER ":" BType
+                | "DECLARE" IDENTIFIER ":" "ARRAY" "[" ArrRange { "," ArrRange } "]" "OF" BType;
+ArrRange      ::= Exp ":" Exp;
 
 (* Function *)
 FuncDef       ::= FUNCTION IDENTIFIER "(" [ ParamList ] ")" RETURNS FuncType Block ENDFUNCTION;
@@ -23,11 +25,11 @@ UserDefType   ::= IDENTIFIER;
 Block         ::= { BlockItem };
 BlockItem     ::= Decl | Stmt;
 Stmt          ::= LVal "<-" Exp
-              | "IF" Exp "THEN" Block ["ELSE" Block] "ENDIF"
-              | "FOR" IDENTIFIER "<-" Exp "TO" Exp ["STEP" Exp] Block "NEXT" IDENTIFIER
-              | "REPEAT" Block "UNTIL" Exp
-              | "WHILE" Exp Block "ENDWHILE"
-              | "RETURN" Exp;
+                | "IF" Exp "THEN" Block ["ELSE" Block] "ENDIF"
+                | "FOR" IDENTIFIER "<-" Exp "TO" Exp ["STEP" Exp] Block "NEXT" IDENTIFIER
+                | "REPEAT" Block "UNTIL" Exp
+                | "WHILE" Exp Block "ENDWHILE"
+                | "RETURN" Exp;
 
 (* Expression *)
 LVal          ::= IDENTIFIER;

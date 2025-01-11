@@ -192,23 +192,67 @@ public:
     }
 };
 
+class VarDeclNodeArray : public ASTBase {
+public:
+    std::string identifier;
+    std::unique_ptr<ASTBase> btype;
+    std::vector<std::unique_ptr<ASTBase>> ranges;
+
+    void dump() const override {
+        std::cout << "VarDeclNodeArray { ";
+        std::cout << identifier << ", ";
+        for (const auto& range : ranges) {
+            range->dump();
+            std::cout << " ";
+        }
+        std::cout << ", ";
+        btype->dump();
+        std::cout << " }";
+    }
+};
+
+class ArrRangeNode : public ASTBase {
+public:
+    std::unique_ptr<ASTBase> start;
+    std::unique_ptr<ASTBase> end;
+
+    void dump() const override {
+        std::cout << "ArrRangeNode { ";
+        start->dump();
+        std::cout << ", ";
+        end->dump();
+        std::cout << " }";
+    }
+};
+
 class FuncDefNode : public ASTBase {
 public:
     std::string identifier;
     std::unique_ptr<ASTBase> func_type;
-    std::vector<std::unique_ptr<ASTBase>> params;
+    std::unique_ptr<ASTBase> param;
     std::unique_ptr<ASTBase> block;
 
     void dump() const override {
         std::cout << "FuncDefNode { ";
         func_type->dump();
-        std::cout << ", " << identifier << ", " << std::endl;
+        std::cout << ", " << identifier << ", ";
+        if (param) param->dump();
+        std::cout << std::endl;
+        block->dump();
+        std::cout << " }";
+    }
+};
+
+class ParamListNode : public ASTBase {
+public:
+    std::vector<std::unique_ptr<ASTBase>> params;
+
+    void dump() const override {
+        std::cout << "ParamList { ";
         for (const auto& param : params) {
             param->dump();
             std::cout << " ";
         }
-        std::cout << std::endl;
-        block->dump();
         std::cout << " }";
     }
 };
