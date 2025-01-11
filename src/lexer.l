@@ -11,8 +11,6 @@
 #include "ast/ast.h"
 #include "parser.tab.hpp"
 
-using namespace std;
-
 %}
 
 /* space & comment */
@@ -101,7 +99,7 @@ Date          [0-9]{2}[-/.][0-9]{2}[-/.][0-9]{4}
 {Boolean}       { yylval.int_val = (std::string(yytext) == "TRUE") ? true : false; return BOOL_CONST; }
 {Date}          { yylval.str_val = new std::string(yytext); return DATE_CONST; }
 
-{Identifier}    { yylval.str_val = new string(yytext); return IDENTIFIER; }
+{Identifier}    { yylval.str_val = new std::string(yytext); return IDENTIFIER; }
 
 .               { return yytext[0]; }
 

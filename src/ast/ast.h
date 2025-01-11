@@ -396,13 +396,29 @@ public:
     }
 };
 
-class LValNode : public ASTBase {
+class LValNodeId : public ASTBase {
 public:
     std::string identifier;
 
     void dump() const override {
         //std::cout << "LVal { ";
         std::cout << identifier;
+        //std::cout << " }";
+    }
+};
+
+class LValNodeArray : public ASTBase {
+public:
+    std::string identifier;
+    std::vector<std::unique_ptr<ASTBase>> index;
+
+    void dump() const override {
+        //std::cout << "LVal { ";
+        std::cout << identifier << ", ";
+        for (const auto& i : index) {
+            i->dump();
+            std::cout << " ";
+        }
         //std::cout << " }";
     }
 };

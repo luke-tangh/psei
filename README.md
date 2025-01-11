@@ -11,8 +11,8 @@
   - [x] Constants
   - [x] Assignments
 3. Arrays
-  - [ ] Declaring arrays
-  - [ ] Using arrays
+  - [x] Declaring arrays
+  - [x] Using arrays
 4. User-defined data types
   - [ ] Defining user-defined data types
     - [ ] Enumerated

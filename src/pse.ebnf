@@ -32,7 +32,7 @@ Stmt          ::= LVal "<-" Exp
                 | "RETURN" Exp;
 
 (* Expression *)
-LVal          ::= IDENTIFIER;
+LVal          ::= IDENTIFIER | IDENTIFIER "[" Exp { "," Exp } "]";
 PrimaryExp    ::= "(" Exp ")" | Number | String | Char | Boolean | Date | LVal;
 UnaryExp      ::= PrimaryExp | UnaryOp UnaryExp;
 UnaryOp       ::= "+" | "-" | "NOT";
