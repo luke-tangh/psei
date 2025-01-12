@@ -35,6 +35,9 @@
 #define OP_OR     "OR"
 #define OP_COL    "COL"
 
+#define OPT_ID    "ID"
+#define OPT_STR   "STR"
+
 class IndentHelper {
 public:
     static std::string current_indent;
@@ -245,6 +248,21 @@ public:
 class StmtNodeReturn : public ASTBase {
 public:
     std::unique_ptr<ASTBase> ret;
+    void dump() const override;
+};
+
+class StmtNodeInput : public ASTBase {
+public:
+    std::string identifier;
+    void dump() const override;
+};
+
+// stream elements comes as pairs with information
+// OUTPUT "The user name is", UserName
+// stream = { OPT_STR, The user name is, OPT_ID, UserName }
+class StmtNodeOutput : public ASTBase {
+public:
+    std::vector<std::string> stream;
     void dump() const override;
 };
 

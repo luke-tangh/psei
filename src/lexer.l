@@ -65,6 +65,9 @@ Date          [0-9]{2}[-/.][0-9]{2}[-/.][0-9]{4}
 "BOOLEAN"       { return BOOLEAN; }
 "DATE"          { return DATE; }
 
+"INPUT"         { return INPUT; }
+"OUTPUT"        { return OUTPUT; }
+
 "CONSTANT"      { return CONSTANT; }
 "DECLARE"       { return DECLARE; }
 "ARRAY"         { return ARRAY; }

@@ -19,8 +19,8 @@ ArrRange      ::= Exp ":" Exp;
 FuncDef       ::= FUNCTION IDENTIFIER "(" [ ParamList ] ")" RETURNS FuncType Block ENDFUNCTION;
 ParamList     ::= Param { "," Param };
 Param         ::= IDENTIFIER ":" BType;
-UserDefType   ::= IDENTIFIER;
 
+(* Block & Statement *)
 Block         ::= { BlockItem };
 BlockItem     ::= Decl | Stmt;
 Stmt          ::= LVal "<-" Exp
@@ -28,7 +28,12 @@ Stmt          ::= LVal "<-" Exp
                 | "FOR" IDENTIFIER "<-" Exp "TO" Exp ["STEP" Exp] Block "NEXT" IDENTIFIER
                 | "REPEAT" Block "UNTIL" Exp
                 | "WHILE" Exp Block "ENDWHILE"
-                | "RETURN" Exp;
+                | "RETURN" Exp
+                | "INPUT" IDENTIFIER
+                | "OUTPUT" OptStream;
+
+(* Stream *)
+OptStream     ::= ( String | IDENTIFIER ) { "," ( String | IDENTIFIER ) };
 
 (* Expression *)
 LVal          ::= IDENTIFIER | IDENTIFIER "[" Exp { "," Exp } "]";

@@ -40,11 +40,15 @@ void yyerror(
     bool bool_val;
     std::string *str_val;
     ASTBase *ast_val;
-    std::vector<std::unique_ptr<ASTBase>> *vec_val;
+    std::vector<std::string> *vec_str_val;
+    std::vector<std::unique_ptr<ASTBase>> *vec_ast_val;
 }
 
 // Data types
 %token INTEGER REAL CHAR STRING BOOLEAN DATE
+
+// Reserved keywords
+%token INPUT OUTPUT
 
 // Initialisation
 %token DECLARE CONSTANT
@@ -78,8 +82,9 @@ void yyerror(
 %type <ast_val> Decl BType ConstDecl VarDecl ArrRange
 %type <ast_val> FuncDef ParamList Param Block BlockItem Stmt LVal
 %type <ast_val> OptionalElse OptionalStep
-%type <ast_val> Exp PrimaryExp UnaryExp UnaryOp MulExp AddExp RelExp EqExp LAndExp LOrExp 
-%type <vec_val> ArrRangeList BlockItems Params Index
+%type <ast_val> Exp PrimaryExp UnaryExp UnaryOp MulExp AddExp RelExp EqExp LAndExp LOrExp
+%type <vec_ast_val> ArrRangeList BlockItems Params Index
+%type <vec_str_val> OptStream
 
 %%
 
@@ -235,7 +240,7 @@ VarDecl
         auto ast = std::make_unique<VarDeclNodeArray>();
         ast->identifier = *std::unique_ptr<std::string>($2);
         ast->btype = std::unique_ptr<ASTBase>($9);
-        ast->ranges = std::move(*$6);
+        ast->ranges = std::move(*$6); delete $6;
 
         Symbol sym = Symbol(
             ast->identifier,
@@ -298,8 +303,10 @@ ParamList
     | Params {
         auto ast = std::make_unique<ParamListNode>();
         ast->params = std::move(*$1);
+        delete $1;
         $$ = ast.release();
     }
+    ;
 
 Params
     : Param {
@@ -332,7 +339,7 @@ Block
     BlockItems 
     {     
         auto ast = std::make_unique<BlockNode>();
-        ast->items = std::move(*$2);
+        ast->items = std::move(*$2); delete $2;
         $$ = ast.release();
 
         symTable->exitScope();
@@ -408,6 +415,16 @@ Stmt
         ast->ret = std::unique_ptr<ASTBase>($2);
         $$ = ast.release();
     }
+    | INPUT IDENTIFIER {
+        auto ast = std::make_unique<StmtNodeInput>();
+        ast->identifier = *std::unique_ptr<std::string>($2);
+        $$ = ast.release();
+    }
+    | OUTPUT OptStream {
+        auto ast = std::make_unique<StmtNodeOutput>();
+        ast->stream = std::move(*$2); delete $2;
+        $$ = ast.release();
+    }
     ;
 
 OptionalElse
@@ -428,6 +445,29 @@ OptionalStep
     }
     ;
 
+OptStream
+    : IDENTIFIER {
+        $$ = new std::vector<std::string>();
+        $$->push_back(OPT_ID);
+        $$->push_back(*std::unique_ptr<std::string>($1));
+    }
+    | STR_CONST {
+        $$ = new std::vector<std::string>();
+        $$->push_back(OPT_STR);
+        $$->push_back(*std::unique_ptr<std::string>($1));
+    }
+    | OptStream COMMA IDENTIFIER {
+        $$ = $1;
+        $1->push_back(OPT_ID);
+        $1->push_back(*std::unique_ptr<std::string>($3));
+    }
+    | OptStream COMMA STR_CONST {
+        $$ = $1;
+        $1->push_back(OPT_STR);
+        $1->push_back(*std::unique_ptr<std::string>($3));
+    }
+    ;
+
 LVal
     : IDENTIFIER {
         auto ast = std::make_unique<LValNodeId>();
@@ -437,7 +477,7 @@ LVal
     | IDENTIFIER LSBRAC Index RSBRAC {
         auto ast = std::make_unique<LValNodeArray>();
         ast->identifier = *std::unique_ptr<std::string>($1);
-        ast->index = std::move(*$3);
+        ast->index = std::move(*$3); delete $3;
         $$ = ast.release();
     }
     ;

@@ -1,10 +1,5 @@
-FUNCTION main() RETURNS INTEGER
-    // ignore me
-    CONSTANT x = 1
+// Example - WHILE loop
 
-    WHILE x = 1
-        x <- x + 1
-    ENDWHILE
-
-    RETURN 0
-ENDFUNCTION
+WHILE Number > 9
+    Number <- Number - 9 
+ENDWHILE

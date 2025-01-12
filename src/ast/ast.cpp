@@ -217,6 +217,28 @@ void StmtNodeReturn::dump() const {
     std::cout << " }";
 }
 
+void StmtNodeInput::dump() const {
+    std::cout << IndentHelper::current_indent << "StmtInput { ";
+    std::cout << identifier;
+    std::cout << " }";
+}
+
+void StmtNodeOutput::dump() const {
+    std::cout << IndentHelper::current_indent << "StmtOutput { ";
+    for (size_t i = 0; i < stream.size(); i += 2) {
+        std::string type = stream[i];
+        std::string value = stream[i + 1];
+
+        if (type == OPT_ID) {
+            std::cout << "ID:" << value << " ";
+        } else if (type == OPT_STR) {
+            std::cout << "STR:\"" << value << "\" ";
+        }
+    }
+    std::cout << "}";
+}
+
+
 void LValNodeId::dump() const {
     std::cout << "LVal { ";
     std::cout << identifier;

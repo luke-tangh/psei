@@ -21,7 +21,7 @@
     - [ ] Set
   - [ ] Using user-defined data types
 5. Common operations
-  - [ ] Input and output
+  - [x] Input and output
   - [x] Arithmetic operations
   - [x] Relational operations
   - [x] Logic operators
