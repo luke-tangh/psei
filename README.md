@@ -58,3 +58,9 @@ make
 ./PseI ../examples/types.pse --show-ast --show-st
 ...
 ```
+
+## Test
+```
+cd build
+ctest
+```

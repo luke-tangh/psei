@@ -40,7 +40,6 @@ void yyerror(
     bool bool_val;
     std::string *str_val;
     ASTBase *ast_val;
-    std::vector<std::string> *vec_str_val;
     std::vector<std::unique_ptr<ASTBase>> *vec_ast_val;
 }
 
@@ -80,11 +79,11 @@ void yyerror(
 // Non-terminal types
 %type <ast_val> Number String Char Boolean Date
 %type <ast_val> Decl BType ConstDecl VarDecl ArrRange
-%type <ast_val> FuncDef ParamList Param Block BlockItem Stmt LVal
+%type <ast_val> FuncDef FuncParamList FuncParam Block BlockItem Stmt
+%type <ast_val> LVal
 %type <ast_val> OptionalElse OptionalStep
 %type <ast_val> Exp PrimaryExp UnaryExp UnaryOp MulExp AddExp RelExp EqExp LAndExp LOrExp
-%type <vec_ast_val> ArrRangeList BlockItems Params Index
-%type <vec_str_val> OptStream
+%type <vec_ast_val> ArrRangeList BlockItems FuncParams ParamList OptStream
 
 %%
 
@@ -276,7 +275,7 @@ ArrRange
     ;
 
 FuncDef
-    : FUNCTION IDENTIFIER LBRACE ParamList RBRACE RETURNS BType Block ENDFUNCTION {
+    : FUNCTION IDENTIFIER LBRACE FuncParamList RBRACE RETURNS BType Block ENDFUNCTION {
         auto ast = std::make_unique<FuncDefNode>();
         ast->identifier = *std::unique_ptr<std::string>($2);
         ast->param = std::unique_ptr<ASTBase>($4);
@@ -296,32 +295,32 @@ FuncDef
     }
     ;
 
-ParamList
+FuncParamList
     : /* empty */ {
         $$ = nullptr;
     }
-    | Params {
-        auto ast = std::make_unique<ParamListNode>();
+    | FuncParams {
+        auto ast = std::make_unique<FuncParamListNode>();
         ast->params = std::move(*$1);
         delete $1;
         $$ = ast.release();
     }
     ;
 
-Params
-    : Param {
+FuncParams
+    : FuncParam {
         $$ = new std::vector<std::unique_ptr<ASTBase>>();
         $$->push_back(std::unique_ptr<ASTBase>($1));
     }
-    | Params COMMA Param {
+    | FuncParams COMMA FuncParam {
         $$ = $1;
         $1->push_back(std::unique_ptr<ASTBase>($3));
     }
     ;
 
-Param
+FuncParam
     : IDENTIFIER COL BType {
-        auto param = std::make_unique<ParamNode>();
+        auto param = std::make_unique<FuncParamNode>();
         param->name = *std::unique_ptr<std::string>($1);
         param->type = std::unique_ptr<ASTBase>($3);
         $$ = param.release();
@@ -446,25 +445,13 @@ OptionalStep
     ;
 
 OptStream
-    : IDENTIFIER {
-        $$ = new std::vector<std::string>();
-        $$->push_back(OPT_ID);
-        $$->push_back(*std::unique_ptr<std::string>($1));
+    : Exp {
+        $$ = new std::vector<std::unique_ptr<ASTBase>>();
+        $$->push_back(std::unique_ptr<ASTBase>($1));
     }
-    | STR_CONST {
-        $$ = new std::vector<std::string>();
-        $$->push_back(OPT_STR);
-        $$->push_back(*std::unique_ptr<std::string>($1));
-    }
-    | OptStream COMMA IDENTIFIER {
+    | OptStream COMMA Exp {
         $$ = $1;
-        $1->push_back(OPT_ID);
-        $1->push_back(*std::unique_ptr<std::string>($3));
-    }
-    | OptStream COMMA STR_CONST {
-        $$ = $1;
-        $1->push_back(OPT_STR);
-        $1->push_back(*std::unique_ptr<std::string>($3));
+        $1->push_back(std::unique_ptr<ASTBase>($3));
     }
     ;
 
@@ -474,20 +461,26 @@ LVal
         ast->identifier = *std::unique_ptr<std::string>($1);
         $$ = ast.release();
     } 
-    | IDENTIFIER LSBRAC Index RSBRAC {
+    | IDENTIFIER LSBRAC ParamList RSBRAC {
         auto ast = std::make_unique<LValNodeArray>();
         ast->identifier = *std::unique_ptr<std::string>($1);
         ast->index = std::move(*$3); delete $3;
         $$ = ast.release();
     }
+    | IDENTIFIER LBRACE ParamList RBRACE {
+        auto ast = std::make_unique<LValNodeFuncCall>();
+        ast->identifier = *std::unique_ptr<std::string>($1);
+        ast->param = std::move(*$3); delete $3;
+        $$ = ast.release();
+    }
     ;
 
-Index
+ParamList
     : Exp {
         $$ = new std::vector<std::unique_ptr<ASTBase>>();
         $$->push_back(std::unique_ptr<ASTBase>($1));
     } 
-    | Index COMMA Exp {
+    | ParamList COMMA Exp {
         $$ = $1;
         $1->push_back(std::unique_ptr<ASTBase>($3));
     }

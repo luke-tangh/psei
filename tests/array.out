@@ -1,0 +1,16 @@
+CompUnit {
+  StmtAssign { LValArr { StudentNames, Exp { 1 } }, Exp { "Ali" } }
+  StmtAssign { LValArr { NoughtsAndCrosses, Exp { 2 } Exp { 3 } }, Exp { 'X' } }
+  StmtAssign { LValArr { StudentNames, Exp { AddExpOp { ADD, LVal { n }, 1 } } }, Exp { LValArr { StudentNames, Exp { LVal { n } } } } }
+  StmtFor { Index, Exp { 1 }, Exp { 30 }, no-step, 
+    Block {
+      StmtAssign { LValArr { StudentNames, Exp { LVal { Index } } }, Exp { "" } }
+    }
+  }
+}
+
+Symbol Table Changes:
+Entered a new scope (Scope Level 0).
+Entered a new scope (Scope Level 1).
+Exited scope (Scope Level 1).
+

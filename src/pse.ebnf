@@ -1,11 +1,12 @@
 CompUnit      ::= {CompUnit} (BlockItem | FuncDef);
 
-Number        ::= INT_CONST;
+Number        ::= INT_CONST | REAL_CONST;
 Exp           ::= LOrExp;
 String        ::= "\"" STR_CONST "\"";
 Char          ::= "'" CHAR_CONST "'";
 Boolean       ::= "TRUE" | "FALSE";
 Date          ::= [0-9]{2}[-/.][0-9]{2}[-/.][0-9]{4};
+Identifier    ::= IDENTIFIER;
 
 (* Const & Variable *)
 Decl          ::= ConstDecl | VarDecl;
@@ -16,9 +17,9 @@ VarDecl       ::= "DECLARE" IDENTIFIER ":" BType
 ArrRange      ::= Exp ":" Exp;
 
 (* Function *)
-FuncDef       ::= FUNCTION IDENTIFIER "(" [ ParamList ] ")" RETURNS FuncType Block ENDFUNCTION;
-ParamList     ::= Param { "," Param };
-Param         ::= IDENTIFIER ":" BType;
+FuncDef       ::= FUNCTION IDENTIFIER "(" [ FuncParamList ] ")" RETURNS FuncType Block ENDFUNCTION;
+FuncParamList ::= FuncParam { "," FuncParam };
+FuncParam     ::= IDENTIFIER ":" BType;
 
 (* Block & Statement *)
 Block         ::= { BlockItem };
@@ -30,13 +31,15 @@ Stmt          ::= LVal "<-" Exp
                 | "WHILE" Exp Block "ENDWHILE"
                 | "RETURN" Exp
                 | "INPUT" IDENTIFIER
-                | "OUTPUT" OptStream;
+                | "OUTPUT" Exp { "," ( Exp ) };
 
-(* Stream *)
-OptStream     ::= ( String | IDENTIFIER ) { "," ( String | IDENTIFIER ) };
+(* Value *)
+LVal          ::= IDENTIFIER 
+                | IDENTIFIER "[" ParamList "]"
+                | IDENTIFIER "(" ParamList ")";
+ParamList     ::= Exp { "," Exp };
 
 (* Expression *)
-LVal          ::= IDENTIFIER | IDENTIFIER "[" Exp { "," Exp } "]";
 PrimaryExp    ::= "(" Exp ")" | Number | String | Char | Boolean | Date | LVal;
 UnaryExp      ::= PrimaryExp | UnaryOp UnaryExp;
 UnaryOp       ::= "+" | "-" | "NOT";

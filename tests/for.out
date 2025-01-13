@@ -1,0 +1,24 @@
+CompUnit {
+  StmtAssign { LVal { Total }, Exp { 0 } }
+  StmtFor { Row, Exp { 1 }, Exp { LVal { MaxRow } }, no-step, 
+    Block {
+      StmtAssign { LVal { RowTotal }, Exp { 0 } }
+      StmtFor { Column, Exp { 1 }, Exp { 10 }, no-step, 
+        Block {
+          StmtAssign { LVal { RowTotal }, Exp { AddExpOp { ADD, LVal { RowTotal }, LValArr { Amount, Exp { LVal { Row } } Exp { LVal { Column } } } } } }
+        }
+      }
+      StmtOutput { Exp { "Total for Row " } Exp { LVal { Row } } Exp { " is " } Exp { LVal { RowTotal } } }
+      StmtAssign { LVal { Total }, Exp { AddExpOp { ADD, LVal { Total }, LVal { RowTotal } } } }
+    }
+  }
+  StmtOutput { Exp { "The grand total is " } Exp { LVal { Total } } }
+}
+
+Symbol Table Changes:
+Entered a new scope (Scope Level 0).
+Entered a new scope (Scope Level 1).
+Entered a new scope (Scope Level 2).
+Exited scope (Scope Level 2).
+Exited scope (Scope Level 1).
+

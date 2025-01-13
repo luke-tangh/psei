@@ -36,7 +36,10 @@ if(NOT (L_SOURCES STREQUAL "" AND Y_SOURCES STREQUAL ""))
   string(REGEX REPLACE ".*/(.*)\\.l" "${CMAKE_CURRENT_BINARY_DIR}/\\1.lex${FB_EXT}" L_OUTPUTS "${L_SOURCES}")
   string(REGEX REPLACE ".*/(.*)\\.y" "${CMAKE_CURRENT_BINARY_DIR}/\\1.tab${FB_EXT}" Y_OUTPUTS "${Y_SOURCES}")
   flex_target(Lexer ${L_SOURCES} ${L_OUTPUTS})
-  bison_target(Parser ${Y_SOURCES} ${Y_OUTPUTS})
+  bison_target(
+    Parser ${Y_SOURCES} ${Y_OUTPUTS}
+    COMPILE_FLAGS "-Wcounterexamples -v"
+    )
   add_flex_bison_dependency(Lexer Parser)
 endif()
 
@@ -55,6 +58,12 @@ file(GLOB_RECURSE CC_SOURCES "src/*.cc")
 set(SOURCES ${C_SOURCES} ${CXX_SOURCES} ${CC_SOURCES}
             ${FLEX_Lexer_OUTPUTS} ${BISON_Parser_OUTPUT_SOURCE})
 
+# Enable testing
+include(CTest)
+
 # executable
 add_executable(PseI ${SOURCES})
 set_target_properties(PseI PROPERTIES C_STANDARD 11 CXX_STANDARD 17)
+
+# Include tests directory
+add_subdirectory(tests)

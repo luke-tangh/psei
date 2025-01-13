@@ -26,7 +26,7 @@ Decimal       [1-9][0-9]*
 Octal         0[0-7]*
 Hexadecimal   0[xX][0-9a-fA-F]+
 Char          \'.\'
-Float         [+-]?([0-9]*[.])?[0-9]+   
+Float         [+-]?([0-9]*\.[0-9]+)
 Boolean       (TRUE|FALSE)
 Date          [0-9]{2}[-/.][0-9]{2}[-/.][0-9]{4}
 

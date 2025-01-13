@@ -1,0 +1,13 @@
+CompUnit {
+  StmtWhile { Exp { RelExpCompare { GT, LVal { Number }, 9 } }, 
+    Block {
+      StmtAssign { LVal { Number }, Exp { AddExpOp { SUB, LVal { Number }, 9 } } }
+    }
+  }
+}
+
+Symbol Table Changes:
+Entered a new scope (Scope Level 0).
+Entered a new scope (Scope Level 1).
+Exited scope (Scope Level 1).
+

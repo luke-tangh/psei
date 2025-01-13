@@ -107,8 +107,8 @@ void FuncDefNode::dump() const {
     std::cout << IndentHelper::current_indent << "}";
 }
 
-void ParamListNode::dump() const {
-    std::cout << "ParamList { ";
+void FuncParamListNode::dump() const {
+    std::cout << "FuncParamList { ";
     for (const auto& param : params) {
         param->dump();
         std::cout << " ";
@@ -116,8 +116,8 @@ void ParamListNode::dump() const {
     std::cout << " }";
 }
 
-void ParamNode::dump() const {
-    std::cout << "Param { " << name << ", ";
+void FuncParamNode::dump() const {
+    std::cout << "FuncParam { " << name << ", ";
     type->dump();
     std::cout << " }";
 }
@@ -225,19 +225,12 @@ void StmtNodeInput::dump() const {
 
 void StmtNodeOutput::dump() const {
     std::cout << IndentHelper::current_indent << "StmtOutput { ";
-    for (size_t i = 0; i < stream.size(); i += 2) {
-        std::string type = stream[i];
-        std::string value = stream[i + 1];
-
-        if (type == OPT_ID) {
-            std::cout << "ID:" << value << " ";
-        } else if (type == OPT_STR) {
-            std::cout << "STR:\"" << value << "\" ";
-        }
+    for (const auto& element : stream) {
+        element->dump();
+        std::cout << " ";
     }
     std::cout << "}";
 }
-
 
 void LValNodeId::dump() const {
     std::cout << "LVal { ";
@@ -250,6 +243,16 @@ void LValNodeArray::dump() const {
     std::cout << identifier << ", ";
     for (const auto& i : index) {
         i->dump();
+        std::cout << " ";
+    }
+    std::cout << "}";
+}
+
+void LValNodeFuncCall::dump() const {
+    std::cout << "LValFuncCall { ";
+    std::cout << identifier << ", ";
+    for (const auto& p : param) {
+        p->dump();
         std::cout << " ";
     }
     std::cout << "}";

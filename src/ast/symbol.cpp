@@ -53,14 +53,4 @@ void SymbolTable::dump() const {
     for (const auto& action : history) {
         std::cout << action << "\n";
     }
-    std::cout << "\nCurrent Symbol Table:\n";
-
-    int scope_level = 0;
-    for (const auto& scope : scopes) {
-        std::cout << "Scope Level " << scope_level++ << ":\n";
-        for (const auto& [name, symbol] : scope) {
-            std::cout << "  " << name << " -> " << symbol.type
-                      << " (line " << symbol.line_number << ")\n";
-        }
-    }
 }

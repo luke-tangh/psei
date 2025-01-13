@@ -1,0 +1,26 @@
+CompUnit {
+  FuncDef { INTEGER, Max, FuncParamList { FuncParam { Number1, INTEGER } FuncParam { Number2, INTEGER }  }, 
+    Block {
+      StmtIf { Exp { RelExpCompare { GT, LVal { Number1 }, LVal { Number2 } } }, 
+        Block {
+          StmtReturn { Exp { LVal { Number1 } } }
+        }, 
+        Block {
+          StmtReturn { Exp { LVal { Number2 } } }
+        }
+      }
+    }
+  }
+  StmtOutput { Exp { "Penalty Fine = " } Exp { LValFuncCall { Max, Exp { 10 } Exp { MulExpOp { MUL, LVal { Distance }, 2 } } } } }
+}
+
+Symbol Table Changes:
+Entered a new scope (Scope Level 0).
+Entered a new scope (Scope Level 1).
+Entered a new scope (Scope Level 2).
+Exited scope (Scope Level 2).
+Entered a new scope (Scope Level 2).
+Exited scope (Scope Level 2).
+Exited scope (Scope Level 1).
+Inserted 'Max' (FUNCTION) into Scope Level 0 (line 9).
+

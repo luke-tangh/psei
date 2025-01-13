@@ -1,0 +1,14 @@
+CompUnit {
+  StmtRepeat { Exp { EqExpCompare { EQ, LVal { Password }, "Secret" } }, 
+    Block {
+      StmtOutput { Exp { "Please enter the password" } }
+      StmtInput { Password }
+    }
+  }
+}
+
+Symbol Table Changes:
+Entered a new scope (Scope Level 0).
+Entered a new scope (Scope Level 1).
+Exited scope (Scope Level 1).
+

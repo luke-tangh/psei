@@ -1,0 +1,30 @@
+CompUnit {
+  VarDecl { a, INTEGER }
+  VarDecl { b, REAL }
+  VarDecl { c, CHAR }
+  VarDecl { d, STRING }
+  VarDecl { e, BOOLEAN }
+  VarDecl { f, DATE }
+  ConstDecl { g, Exp { 12 } }
+  ConstDecl { h, Exp { 1.2 } }
+  ConstDecl { i, Exp { 'a' } }
+  ConstDecl { j, Exp { "abc" } }
+  ConstDecl { k, Exp { 1 } }
+  ConstDecl { l, Exp { 01/10/2025 } }
+}
+
+Symbol Table Changes:
+Entered a new scope (Scope Level 0).
+Inserted 'a' (VARIABLE) into Scope Level 0 (line 1).
+Inserted 'b' (VARIABLE) into Scope Level 0 (line 2).
+Inserted 'c' (VARIABLE) into Scope Level 0 (line 3).
+Inserted 'd' (VARIABLE) into Scope Level 0 (line 4).
+Inserted 'e' (VARIABLE) into Scope Level 0 (line 5).
+Inserted 'f' (VARIABLE) into Scope Level 0 (line 6).
+Inserted 'g' (CONSTANT) into Scope Level 0 (line 9).
+Inserted 'h' (CONSTANT) into Scope Level 0 (line 10).
+Inserted 'i' (CONSTANT) into Scope Level 0 (line 11).
+Inserted 'j' (CONSTANT) into Scope Level 0 (line 12).
+Inserted 'k' (CONSTANT) into Scope Level 0 (line 13).
+Inserted 'l' (CONSTANT) into Scope Level 0 (line 14).
+
