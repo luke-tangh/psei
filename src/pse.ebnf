@@ -1,31 +1,33 @@
 CompUnit      ::= {CompUnit} (BlockItem | FuncDef);
 
+Literial      ::= Number | String | Char | Boolean | Date;
 Number        ::= INT_CONST | REAL_CONST;
 Exp           ::= LOrExp;
 String        ::= "\"" STR_CONST "\"";
 Char          ::= "'" CHAR_CONST "'";
 Boolean       ::= "TRUE" | "FALSE";
 Date          ::= [0-9]{2}[-/.][0-9]{2}[-/.][0-9]{4};
-Identifier    ::= IDENTIFIER;
 
-(* Const & Variable *)
+(* Constants & Variables *)
 Decl          ::= ConstDecl | VarDecl;
 BType         ::= "INTEGER" | "REAL" | "CHAR" | "STRING" | "BOOLEAN" | "DATE";
 ConstDecl     ::= "CONSTANT" IDENTIFIER "=" Exp;
 VarDecl       ::= "DECLARE" IDENTIFIER ":" BType
-                | "DECLARE" IDENTIFIER ":" "ARRAY" "[" ArrRange { "," ArrRange } "]" "OF" BType;
-ArrRange      ::= Exp ":" Exp;
+                | "DECLARE" IDENTIFIER ":" "ARRAY" "[" Exp ":" Exp { "," Exp ":" Exp } "]" "OF" BType;
 
 (* Function *)
-FuncDef       ::= FUNCTION IDENTIFIER "(" [ FuncParamList ] ")" RETURNS FuncType Block ENDFUNCTION;
-FuncParamList ::= FuncParam { "," FuncParam };
-FuncParam     ::= IDENTIFIER ":" BType;
+FuncDef       ::= FUNCTION IDENTIFIER "(" [ ParamList ] ")" RETURNS BType Block ENDFUNCTION;
+ParamList     ::= Param { "," Param };
+Param         ::= IDENTIFIER ":" BType;
+FuncCall      ::= IDENTIFIER "(" [ ArgList ] ")";
+ArgList       ::= Exp { "," Exp };
 
 (* Block & Statement *)
 Block         ::= { BlockItem };
 BlockItem     ::= Decl | Stmt;
 Stmt          ::= LVal "<-" Exp
                 | "IF" Exp "THEN" Block ["ELSE" Block] "ENDIF"
+                | "CASE" "OF" IDENTIFIER { ( Exp | Range ) ":" Block } [ "OTHERWISE" ":" Block ] "ENDCASE"
                 | "FOR" IDENTIFIER "<-" Exp "TO" Exp ["STEP" Exp] Block "NEXT" IDENTIFIER
                 | "REPEAT" Block "UNTIL" Exp
                 | "WHILE" Exp Block "ENDWHILE"
@@ -35,12 +37,10 @@ Stmt          ::= LVal "<-" Exp
 
 (* Value *)
 LVal          ::= IDENTIFIER 
-                | IDENTIFIER "[" ParamList "]"
-                | IDENTIFIER "(" ParamList ")";
-ParamList     ::= Exp { "," Exp };
+                | IDENTIFIER "[" Exp { "," Exp } "]";
 
 (* Expression *)
-PrimaryExp    ::= "(" Exp ")" | Number | String | Char | Boolean | Date | LVal;
+PrimaryExp    ::= "(" Exp ")" | Literial | LVal | FuncCall;
 UnaryExp      ::= PrimaryExp | UnaryOp UnaryExp;
 UnaryOp       ::= "+" | "-" | "NOT";
 MulExp        ::= UnaryExp | MulExp ("*" | "/" | "DIV" | "MOD") UnaryExp;

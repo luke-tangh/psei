@@ -53,8 +53,9 @@ void yyerror(
 %token DECLARE CONSTANT
 %token ARRAY OF
 
-// IF
+// SELECTION
 %token IF THEN ELSE ENDIF
+%token CASE OTHERWISE ENDCASE
 
 // LOOPS
 %token FOR TO STEP NEXT
@@ -65,8 +66,8 @@ void yyerror(
 %token FUNCTION ENDFUNCTION RETURN RETURNS
 
 // Reserved Symbols
-%token PLUS MINUS NOT
-%token ASSIGN LBRACE RBRACE LSBRAC RSBRAC ADD SUB MUL DIV INTDIV MOD
+%token NOT
+%token ASSIGN LBRAC RBRAC LSBRAC RSBRAC ADD SUB MUL DIV INTDIV MOD
 %token LT GT LEQ GEQ EQ NEQ AND OR COL COMMA
 
 // Token types with semantic values
@@ -77,13 +78,14 @@ void yyerror(
 %token <bool_val> BOOL_CONST
 
 // Non-terminal types
-%type <ast_val> Number String Char Boolean Date
+%type <ast_val> Number String Char Boolean Date Literial
 %type <ast_val> Decl BType ConstDecl VarDecl ArrRange
-%type <ast_val> FuncDef FuncParamList FuncParam Block BlockItem Stmt
-%type <ast_val> LVal
-%type <ast_val> OptionalElse OptionalStep
+%type <ast_val> FuncDef ParamList Param
+%type <ast_val> Block BlockItem Stmt
+%type <ast_val> LVal Case FuncCall
+%type <ast_val> OptionalElse OptionalStep OptionalOtherwise
 %type <ast_val> Exp PrimaryExp UnaryExp UnaryOp MulExp AddExp RelExp EqExp LAndExp LOrExp
-%type <vec_ast_val> ArrRangeList BlockItems FuncParams ParamList OptStream
+%type <vec_ast_val> ArrRangeList BlockItems Params ArgList CaseItems OptStream
 
 %%
 
@@ -151,6 +153,10 @@ Date
         ast->date = *std::unique_ptr<std::string>($1);
         $$ = ast.release();
     }
+    ;
+
+Literial
+    : Number | String | Char | Boolean | Date
     ;
 
 Decl
@@ -275,7 +281,7 @@ ArrRange
     ;
 
 FuncDef
-    : FUNCTION IDENTIFIER LBRACE FuncParamList RBRACE RETURNS BType Block ENDFUNCTION {
+    : FUNCTION IDENTIFIER LBRAC ParamList RBRAC RETURNS BType Block ENDFUNCTION {
         auto ast = std::make_unique<FuncDefNode>();
         ast->identifier = *std::unique_ptr<std::string>($2);
         ast->param = std::unique_ptr<ASTBase>($4);
@@ -295,37 +301,50 @@ FuncDef
     }
     ;
 
-FuncParamList
+ParamList
     : /* empty */ {
         $$ = nullptr;
     }
-    | FuncParams {
-        auto ast = std::make_unique<FuncParamListNode>();
+    | Params {
+        auto ast = std::make_unique<ParamListNode>();
         ast->params = std::move(*$1);
         delete $1;
         $$ = ast.release();
     }
     ;
 
-FuncParams
-    : FuncParam {
+Params
+    : Param {
         $$ = new std::vector<std::unique_ptr<ASTBase>>();
         $$->push_back(std::unique_ptr<ASTBase>($1));
     }
-    | FuncParams COMMA FuncParam {
+    | Params COMMA Param {
         $$ = $1;
         $1->push_back(std::unique_ptr<ASTBase>($3));
     }
     ;
 
-FuncParam
+Param
     : IDENTIFIER COL BType {
-        auto param = std::make_unique<FuncParamNode>();
-        param->name = *std::unique_ptr<std::string>($1);
-        param->type = std::unique_ptr<ASTBase>($3);
-        $$ = param.release();
+        auto ast = std::make_unique<ParamNode>();
+        ast->name = *std::unique_ptr<std::string>($1);
+        ast->type = std::unique_ptr<ASTBase>($3);
+        $$ = ast.release();
     }
     ;
+
+FuncCall
+    : IDENTIFIER LBRAC RBRAC {
+        auto ast = std::make_unique<FuncCallNode>();
+        ast->identifier = *std::unique_ptr<std::string>($1);
+        $$ = ast.release();
+    }
+    | IDENTIFIER LBRAC ArgList RBRAC {
+        auto ast = std::make_unique<FuncCallNode>();
+        ast->identifier = *std::unique_ptr<std::string>($1);
+        ast->args = std::move(*$3); delete $3;
+        $$ = ast.release();
+    }
 
 Block
     : /* Empty */ {
@@ -383,6 +402,13 @@ Stmt
         ast->elses = std::unique_ptr<ASTBase>($5);
         $$ = ast.release();
     }
+    | CASE OF IDENTIFIER CaseItems OptionalOtherwise ENDCASE {
+        auto ast = std::make_unique<StmtNodeCase>();
+        ast->identifier = *std::unique_ptr<std::string>($3);
+        ast->cases = std::move(*$4); delete $4;
+        ast->otherwise = std::unique_ptr<ASTBase>($5);
+        $$ = ast.release();
+    }
     | FOR IDENTIFIER ASSIGN Exp TO Exp OptionalStep Block NEXT IDENTIFIER {
         if (*$2 != *$10) {
             semanticError(ErrorType::IdentifiersDontMatch, (*$2), yylineno);
@@ -390,9 +416,9 @@ Stmt
 
         auto ast = std::make_unique<StmtNodeFor>();
         ast->identifier = *std::unique_ptr<std::string>($2);
-        ast->startExpr = std::unique_ptr<ASTBase>($4);
-        ast->endExpr = std::unique_ptr<ASTBase>($6);
-        ast->stepExpr = std::unique_ptr<ASTBase>($7);
+        ast->start = std::unique_ptr<ASTBase>($4);
+        ast->end = std::unique_ptr<ASTBase>($6);
+        ast->step = std::unique_ptr<ASTBase>($7);
         ast->block = std::unique_ptr<ASTBase>($8);
         
         $$ = ast.release();
@@ -444,6 +470,43 @@ OptionalStep
     }
     ;
 
+CaseItems
+    : Case {
+        $$ = new std::vector<std::unique_ptr<ASTBase>>();
+        $$->push_back(std::unique_ptr<ASTBase>($1));
+    }
+    | CaseItems Case {
+        $$ = $1;
+        $1->push_back(std::unique_ptr<ASTBase>($2));
+    }
+    ;
+
+Case
+    : Literial COL Block {
+        auto ast = std::make_unique<CaseNode>();
+        ast->from = std::unique_ptr<ASTBase>($1);
+        ast->to = nullptr;
+        ast->block = std::unique_ptr<ASTBase>($3);
+        $$ = ast.release();
+    }
+    | Literial TO Literial COL Block {
+        auto ast = std::make_unique<CaseNode>();
+        ast->from = std::unique_ptr<ASTBase>($1);
+        ast->to = std::unique_ptr<ASTBase>($3);
+        ast->block = std::unique_ptr<ASTBase>($5);
+        $$ = ast.release();
+    }
+    ;
+
+OptionalOtherwise
+    : OTHERWISE COL Block {
+        $$ = $3;
+    }
+    | /* Empty */ {
+        $$ = nullptr; 
+    }
+    ;
+
 OptStream
     : Exp {
         $$ = new std::vector<std::unique_ptr<ASTBase>>();
@@ -461,63 +524,42 @@ LVal
         ast->identifier = *std::unique_ptr<std::string>($1);
         $$ = ast.release();
     } 
-    | IDENTIFIER LSBRAC ParamList RSBRAC {
+    | IDENTIFIER LSBRAC ArgList RSBRAC {
         auto ast = std::make_unique<LValNodeArray>();
         ast->identifier = *std::unique_ptr<std::string>($1);
         ast->index = std::move(*$3); delete $3;
         $$ = ast.release();
     }
-    | IDENTIFIER LBRACE ParamList RBRACE {
-        auto ast = std::make_unique<LValNodeFuncCall>();
-        ast->identifier = *std::unique_ptr<std::string>($1);
-        ast->param = std::move(*$3); delete $3;
-        $$ = ast.release();
-    }
     ;
 
-ParamList
+ArgList
     : Exp {
         $$ = new std::vector<std::unique_ptr<ASTBase>>();
         $$->push_back(std::unique_ptr<ASTBase>($1));
     } 
-    | ParamList COMMA Exp {
+    | ArgList COMMA Exp {
         $$ = $1;
         $1->push_back(std::unique_ptr<ASTBase>($3));
     }
     ;
 
 PrimaryExp
-    : LBRACE Exp RBRACE {
+    : LBRAC Exp RBRAC {
         auto ast = std::make_unique<PrimaryExpNode>();
         ast->expr = std::unique_ptr<ASTBase>($2);
         $$ = ast.release();
     }
-    | Number {
-        auto ast = std::make_unique<PrimaryExpNode>();
-        ast->expr = std::unique_ptr<ASTBase>($1);
-        $$ = ast.release();
-    }
-    | String {
-        auto ast = std::make_unique<PrimaryExpNode>();
-        ast->expr = std::unique_ptr<ASTBase>($1);
-        $$ = ast.release();
-    }
-    | Char {
-        auto ast = std::make_unique<PrimaryExpNode>();
-        ast->expr = std::unique_ptr<ASTBase>($1);
-        $$ = ast.release();
-    }
-    | Boolean {
-        auto ast = std::make_unique<PrimaryExpNode>();
-        ast->expr = std::unique_ptr<ASTBase>($1);
-        $$ = ast.release();
-    }
-    | Date {
+    | Literial {
         auto ast = std::make_unique<PrimaryExpNode>();
         ast->expr = std::unique_ptr<ASTBase>($1);
         $$ = ast.release();
     }
     | LVal {
+        auto ast = std::make_unique<PrimaryExpNode>();
+        ast->expr = std::unique_ptr<ASTBase>($1);
+        $$ = ast.release();
+    }
+    | FuncCall {
         auto ast = std::make_unique<PrimaryExpNode>();
         ast->expr = std::unique_ptr<ASTBase>($1);
         $$ = ast.release();

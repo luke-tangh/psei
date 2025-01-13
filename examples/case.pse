@@ -1,0 +1,17 @@
+INPUT Move 
+CASE OF Move
+    'W' : Position <- Position - 10 
+    'S' : Position <- Position + 10 
+    'A' : Position <- Position - 1 
+    'D' : Position <- Position + 1 
+    //OTHERWISE : CALL Beep
+ENDCASE
+
+INPUT Score
+CASE OF Move
+    70 TO 100 : Grade <- 'A' 
+    60 TO 70  : Grade <- 'B'
+    50 TO 60  : Grade <- 'C'
+    40 TO 50  : Grade <- 'D'
+    OTHERWISE : Grade <- 'F'
+ENDCASE

@@ -1,5 +1,5 @@
 CompUnit {
-  FuncDef { INTEGER, Max, FuncParamList { FuncParam { Number1, INTEGER } FuncParam { Number2, INTEGER }  }, 
+  FuncDef { INTEGER, Max, ParamList { Param { Number1, INTEGER } Param { Number2, INTEGER } }, 
     Block {
       StmtIf { Exp { RelExpCompare { GT, LVal { Number1 }, LVal { Number2 } } }, 
         Block {
@@ -11,7 +11,7 @@ CompUnit {
       }
     }
   }
-  StmtOutput { Exp { "Penalty Fine = " } Exp { LValFuncCall { Max, Exp { 10 } Exp { MulExpOp { MUL, LVal { Distance }, 2 } } } } }
+  StmtOutput { Exp { "Penalty Fine = " } Exp { FuncCall { Max, Exp { 10 } Exp { MulExpOp { MUL, LVal { Distance }, 2 } } } } }
 }
 
 Symbol Table Changes:

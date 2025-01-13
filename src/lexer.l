@@ -38,8 +38,8 @@ Date          [0-9]{2}[-/.][0-9]{2}[-/.][0-9]{4}
 {LineComment}   { /* Ignore */ }
 
 "<-"            { return ASSIGN; }
-"("             { return LBRACE; }
-")"             { return RBRACE; }
+"("             { return LBRAC; }
+")"             { return RBRAC; }
 "["             { return LSBRAC; }
 "]"             { return RSBRAC; }
 "+"             { return ADD; }
@@ -79,6 +79,9 @@ Date          [0-9]{2}[-/.][0-9]{2}[-/.][0-9]{4}
 "THEN"          { return THEN; }
 "ELSE"          { return ELSE; }
 "ENDIF"         { return ENDIF; }
+"CASE"          { return CASE; }
+"OTHERWISE"     { return OTHERWISE; }
+"ENDCASE"       { return ENDCASE; } 
 
 "FOR"           { return FOR; }
 "TO"            { return TO; }

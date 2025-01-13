@@ -107,19 +107,28 @@ void FuncDefNode::dump() const {
     std::cout << IndentHelper::current_indent << "}";
 }
 
-void FuncParamListNode::dump() const {
-    std::cout << "FuncParamList { ";
+void ParamListNode::dump() const {
+    std::cout << "ParamList { ";
     for (const auto& param : params) {
         param->dump();
         std::cout << " ";
     }
+    std::cout << "}";
+}
+
+void ParamNode::dump() const {
+    std::cout << "Param { " << name << ", ";
+    type->dump();
     std::cout << " }";
 }
 
-void FuncParamNode::dump() const {
-    std::cout << "FuncParam { " << name << ", ";
-    type->dump();
-    std::cout << " }";
+void FuncCallNode::dump() const {
+    std::cout << "FuncCall { " << identifier << ", ";
+    for (const auto& a : args) {
+        a->dump();
+        std::cout << " ";
+    }
+    std::cout << "}";
 }
 
 void BlockNode::dump() const {
@@ -163,14 +172,39 @@ void StmtNodeIf::dump() const {
     std::cout << IndentHelper::current_indent << "}";
 }
 
+void StmtNodeCase::dump() const {
+    std::cout << IndentHelper::current_indent << "StmtCase { ";
+    std::cout << identifier << ", " << std::endl;
+    
+    for (const auto& c : cases) {
+        c->dump();
+        std::cout << std::endl;
+    }
+
+    std::cout << IndentHelper::current_indent << "}";
+}
+
+void CaseNode::dump() const {
+    std::cout << IndentHelper::current_indent << "Case { ";
+    from->dump();
+    std::cout << ", ";
+    if (to) { to->dump(); std::cout << ", "; }
+    std::cout << std::endl;
+    IndentHelper::indent();
+    block->dump();
+    IndentHelper::dedent();
+    std::cout << std::endl;
+    std::cout << IndentHelper::current_indent << "}";
+}
+
 void StmtNodeFor::dump() const {
     std::cout << IndentHelper::current_indent << "StmtFor { ";
     std::cout << identifier << ", ";
-    startExpr->dump();
+    start->dump();
     std::cout << ", ";
-    endExpr->dump();
+    end->dump();
     std::cout << ", ";
-    if (stepExpr) { stepExpr->dump(); }
+    if (step) { step->dump(); }
     else { std::cout << "no-step"; }
     std::cout << ", ";
 
@@ -243,16 +277,6 @@ void LValNodeArray::dump() const {
     std::cout << identifier << ", ";
     for (const auto& i : index) {
         i->dump();
-        std::cout << " ";
-    }
-    std::cout << "}";
-}
-
-void LValNodeFuncCall::dump() const {
-    std::cout << "LValFuncCall { ";
-    std::cout << identifier << ", ";
-    for (const auto& p : param) {
-        p->dump();
         std::cout << " ";
     }
     std::cout << "}";

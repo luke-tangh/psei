@@ -172,17 +172,24 @@ public:
     void dump() const override;
 };
 
-class FuncParamListNode : public ASTBase {
+class ParamListNode : public ASTBase {
 public:
     std::vector<std::unique_ptr<ASTBase>> params;
     void dump() const override;
 };
 
-class FuncParamNode : public ASTBase {
+class ParamNode : public ASTBase {
 public:
     std::string name;
     std::unique_ptr<ASTBase> type;
 
+    void dump() const override;
+};
+
+class FuncCallNode : public ASTBase {
+public:
+    std::string identifier;
+    std::vector<std::unique_ptr<ASTBase>> args;
     void dump() const override;
 };
 
@@ -215,12 +222,30 @@ public:
     void dump() const override;
 };
 
+class StmtNodeCase : public ASTBase {
+public:
+    std::string identifier;
+    std::vector<std::unique_ptr<ASTBase>> cases;
+    std::unique_ptr<ASTBase> otherwise;
+
+    void dump() const override;
+};
+
+class CaseNode : public ASTBase {
+public:
+    std::unique_ptr<ASTBase> from;
+    std::unique_ptr<ASTBase> to;
+    std::unique_ptr<ASTBase> block;
+
+    void dump() const override;
+};
+
 class StmtNodeFor : public ASTBase {
 public:
     std::string identifier;
-    std::unique_ptr<ASTBase> startExpr;
-    std::unique_ptr<ASTBase> endExpr;
-    std::unique_ptr<ASTBase> stepExpr;
+    std::unique_ptr<ASTBase> start;
+    std::unique_ptr<ASTBase> end;
+    std::unique_ptr<ASTBase> step;
     std::unique_ptr<ASTBase> block;
 
     void dump() const override;
@@ -270,14 +295,6 @@ class LValNodeArray : public ASTBase {
 public:
     std::string identifier;
     std::vector<std::unique_ptr<ASTBase>> index;
-
-    void dump() const override;
-};
-
-class LValNodeFuncCall : public ASTBase {
-public:
-    std::string identifier;
-    std::vector<std::unique_ptr<ASTBase>> param;
 
     void dump() const override;
 };

@@ -1,0 +1,70 @@
+CompUnit {
+  StmtInput { Move }
+  StmtCase { Move, 
+  Case { 'W', 
+    Block {
+      StmtAssign { LVal { Position }, Exp { AddExpOp { SUB, LVal { Position }, 10 } } }
+    }
+  }
+  Case { 'S', 
+    Block {
+      StmtAssign { LVal { Position }, Exp { AddExpOp { ADD, LVal { Position }, 10 } } }
+    }
+  }
+  Case { 'A', 
+    Block {
+      StmtAssign { LVal { Position }, Exp { AddExpOp { SUB, LVal { Position }, 1 } } }
+    }
+  }
+  Case { 'D', 
+    Block {
+      StmtAssign { LVal { Position }, Exp { AddExpOp { ADD, LVal { Position }, 1 } } }
+    }
+  }
+  }
+  StmtInput { Score }
+  StmtCase { Move, 
+  Case { 70, 100, 
+    Block {
+      StmtAssign { LVal { Grade }, Exp { 'A' } }
+    }
+  }
+  Case { 60, 70, 
+    Block {
+      StmtAssign { LVal { Grade }, Exp { 'B' } }
+    }
+  }
+  Case { 50, 60, 
+    Block {
+      StmtAssign { LVal { Grade }, Exp { 'C' } }
+    }
+  }
+  Case { 40, 50, 
+    Block {
+      StmtAssign { LVal { Grade }, Exp { 'D' } }
+    }
+  }
+  }
+}
+
+Symbol Table Changes:
+Entered a new scope (Scope Level 0).
+Entered a new scope (Scope Level 1).
+Exited scope (Scope Level 1).
+Entered a new scope (Scope Level 1).
+Exited scope (Scope Level 1).
+Entered a new scope (Scope Level 1).
+Exited scope (Scope Level 1).
+Entered a new scope (Scope Level 1).
+Exited scope (Scope Level 1).
+Entered a new scope (Scope Level 1).
+Exited scope (Scope Level 1).
+Entered a new scope (Scope Level 1).
+Exited scope (Scope Level 1).
+Entered a new scope (Scope Level 1).
+Exited scope (Scope Level 1).
+Entered a new scope (Scope Level 1).
+Exited scope (Scope Level 1).
+Entered a new scope (Scope Level 1).
+Exited scope (Scope Level 1).
+
