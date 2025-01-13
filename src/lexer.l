@@ -2,6 +2,8 @@
 %option nounput
 %option noinput
 %option yylineno
+%option nounistd
+%option never-interactive
 
 %{
 
