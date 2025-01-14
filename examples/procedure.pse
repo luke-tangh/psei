@@ -1,0 +1,5 @@
+PROCEDURE SWAP(BYREF X : INTEGER, Y : INTEGER)
+    Temp <- X
+    X <- Y
+    Y <- Temp
+ENDPROCEDURE

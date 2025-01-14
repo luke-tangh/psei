@@ -16,9 +16,11 @@ VarDecl       ::= "DECLARE" IDENTIFIER ":" BType
                 | "DECLARE" IDENTIFIER ":" "ARRAY" "[" Exp ":" Exp { "," Exp ":" Exp } "]" "OF" BType;
 
 (* Function *)
-FuncDef       ::= FUNCTION IDENTIFIER "(" [ ParamList ] ")" RETURNS BType Block ENDFUNCTION;
+FuncDef       ::= "FUNCTION" IDENTIFIER "(" [ ParamList ] ")" "RETURNS" BType Block "ENDFUNCTION";
+ProcDef       ::= "PROCEDURE" IDENTIFIER "(" [ ParamList ] ")" Block "ENDPROCEDURE";
 ParamList     ::= Param { "," Param };
-Param         ::= IDENTIFIER ":" BType;
+Param         ::= [ PassBy ] IDENTIFIER ":" BType;
+PassBy        ::= "BYVAL" | "BYREF";
 FuncCall      ::= IDENTIFIER "(" [ ArgList ] ")";
 ArgList       ::= Exp { "," Exp };
 

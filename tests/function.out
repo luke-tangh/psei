@@ -1,5 +1,5 @@
 CompUnit {
-  FuncDef { INTEGER, Max, ParamList { Param { Number1, INTEGER } Param { Number2, INTEGER } }, 
+  FuncDef { INTEGER, Max, ParamList { Param { BY_DEFAULT, Number1, INTEGER } Param { BY_DEFAULT, Number2, INTEGER } }, 
     Block {
       StmtIf { Exp { RelExpCompare { GT, LVal { Number1 }, LVal { Number2 } } }, 
         Block {

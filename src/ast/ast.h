@@ -7,16 +7,21 @@
 #include <vector>
 #include <variant>
 
-#define DTYPE_INT  "INTEGER"
-#define DTYPE_REAL "REAL"
-#define DTYPE_CHAR "CHAR"
-#define DTYPE_STR  "STRING"
-#define DTYPE_BOOL "BOOLEAN"
-#define DTYPE_DATE "DATE"
+#define DTYPE_INT       "INTEGER"
+#define DTYPE_REAL      "REAL"
+#define DTYPE_CHAR      "CHAR"
+#define DTYPE_STR       "STRING"
+#define DTYPE_BOOL      "BOOLEAN"
+#define DTYPE_DATE      "DATE"
 
-#define STYPE_VAR   "VARIABLE"
-#define STYPE_CONST "CONSTANT"
-#define STYPE_FUNC  "FUNCTION"
+#define STYPE_VAR       "VARIABLE"
+#define STYPE_CONST     "CONSTANT"
+#define STYPE_FUNC      "FUNCTION"
+#define STYPE_PROC      "PROCEDURE"
+
+#define PASS_BY_DEFAULT "BY_DEFAULT"
+#define PASS_BY_REF     "BY_REF"
+#define PASS_BY_VAL     "BY_VAL"
 
 #define OP_ADD    "ADD"
 #define OP_SUB    "SUB"
@@ -172,6 +177,15 @@ public:
     void dump() const override;
 };
 
+class ProcDefNode : public ASTBase {
+public:
+    std::string identifier;
+    std::unique_ptr<ASTBase> param;
+    std::unique_ptr<ASTBase> block;
+
+    void dump() const override;
+};
+
 class ParamListNode : public ASTBase {
 public:
     std::vector<std::unique_ptr<ASTBase>> params;
@@ -180,6 +194,7 @@ public:
 
 class ParamNode : public ASTBase {
 public:
+    std::string pass_by;
     std::string name;
     std::unique_ptr<ASTBase> type;
 

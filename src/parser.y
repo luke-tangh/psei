@@ -62,8 +62,10 @@ void yyerror(
 %token REPEAT UNTIL
 %token WHILE ENDWHILE
 
-// FUNCTION
+// FUNCTION & PROCEDURE
 %token FUNCTION ENDFUNCTION RETURN RETURNS
+%token PROCEDURE ENDPROCEDURE
+%token BYREF BYVAL
 
 // Reserved Symbols
 %token NOT
@@ -78,9 +80,10 @@ void yyerror(
 %token <bool_val> BOOL_CONST
 
 // Non-terminal types
+%type <str_val> OptionalPassBy
 %type <ast_val> Number String Char Boolean Date Literial
 %type <ast_val> Decl BType ConstDecl VarDecl ArrRange
-%type <ast_val> FuncDef ParamList Param
+%type <ast_val> FuncDef ProcDef ParamList Param
 %type <ast_val> Block BlockItem Stmt
 %type <ast_val> LVal Case FuncCall
 %type <ast_val> OptionalElse OptionalStep OptionalOtherwise
@@ -99,6 +102,10 @@ CompUnit
         comp_unit->items.push_back(std::unique_ptr<ASTBase>($2));
     }
     | CompUnit FuncDef {
+        auto comp_unit = static_cast<CompUnitNode*>(ast.get());
+        comp_unit->items.push_back(std::unique_ptr<ASTBase>($2));
+    }
+    | CompUnit ProcDef {
         auto comp_unit = static_cast<CompUnitNode*>(ast.get());
         comp_unit->items.push_back(std::unique_ptr<ASTBase>($2));
     }
@@ -301,6 +308,26 @@ FuncDef
     }
     ;
 
+ProcDef
+    : PROCEDURE IDENTIFIER LBRAC ParamList RBRAC Block ENDPROCEDURE {
+        auto ast = std::make_unique<ProcDefNode>();
+        ast->identifier = *std::unique_ptr<std::string>($2);
+        ast->param = std::unique_ptr<ASTBase>($4);
+        ast->block = std::unique_ptr<ASTBase>($6);
+
+        Symbol sym = Symbol(
+            ast->identifier,
+            STYPE_PROC,
+            yylineno
+        );
+        if (!symTable->insert(sym.name, sym)) {
+            semanticError(ErrorType::IdentifierAlreadyDefined, sym.name, yylineno);
+        }
+
+        $$ = ast.release();
+    }
+    ;
+
 ParamList
     : /* empty */ {
         $$ = nullptr;
@@ -325,12 +352,19 @@ Params
     ;
 
 Param
-    : IDENTIFIER COL BType {
+    : OptionalPassBy IDENTIFIER COL BType {
         auto ast = std::make_unique<ParamNode>();
-        ast->name = *std::unique_ptr<std::string>($1);
-        ast->type = std::unique_ptr<ASTBase>($3);
+        ast->pass_by = *std::unique_ptr<std::string>($1);
+        ast->name = *std::unique_ptr<std::string>($2);
+        ast->type = std::unique_ptr<ASTBase>($4);
         $$ = ast.release();
     }
+    ;
+
+OptionalPassBy
+    : /* empty */ { $$ = new std::string(PASS_BY_DEFAULT); }
+    | BYVAL { $$ = new std::string(PASS_BY_VAL); }
+    | BYREF { $$ = new std::string(PASS_BY_REF); }
     ;
 
 FuncCall

@@ -29,14 +29,14 @@
   - [ ] Numeric functions
 6. Selection
   - [x] IF statements
-  - [ ] CASE statements
+  - [x] CASE statements
 7. Iteration (repetition)
   - [x] Count-controlled (FOR) loops
   - [x] Post-condition (REPEAT) loops
   - [x] Pre-condition (WHILE) loops
 8. Procedures and functions
   - [ ] Defining and calling procedures
-  - [ ] Defining and calling functions
+  - [x] Defining and calling functions
   - [ ] Passing parameters by value or by reference
 9. File handling
   - [ ] Handling text files

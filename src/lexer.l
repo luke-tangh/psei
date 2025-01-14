@@ -92,10 +92,14 @@ Date          [0-9]{2}[-/.][0-9]{2}[-/.][0-9]{4}
 "WHILE"         { return WHILE; }
 "ENDWHILE"      { return ENDWHILE; }
 
-"RETURN"        { return RETURN; }
-"RETURNS"       { return RETURNS; }
 "FUNCTION"      { return FUNCTION; }
+"RETURNS"       { return RETURNS; }
+"RETURN"        { return RETURN; }
 "ENDFUNCTION"   { return ENDFUNCTION; }
+"PROCEDURE"     { return PROCEDURE; }
+"ENDPROCEDURE"  { return ENDPROCEDURE; }
+"BYREF"         { return BYREF; }
+"BYVAL"         { return BYVAL; }
 
 {Decimal}       { yylval.int_val = strtol(yytext, nullptr, 0); return INT_CONST; }
 {Octal}         { yylval.int_val = strtol(yytext, nullptr, 0); return INT_CONST; }

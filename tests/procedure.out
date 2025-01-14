@@ -1,0 +1,16 @@
+CompUnit {
+  ProcDef { SWAP, ParamList { Param { BY_REF, X, INTEGER } Param { BY_DEFAULT, Y, INTEGER } }, 
+    Block {
+      StmtAssign { LVal { Temp }, Exp { LVal { X } } }
+      StmtAssign { LVal { X }, Exp { LVal { Y } } }
+      StmtAssign { LVal { Y }, Exp { LVal { Temp } } }
+    }
+  }
+}
+
+Symbol Table Changes:
+Entered a new scope (Scope Level 0).
+Entered a new scope (Scope Level 1).
+Exited scope (Scope Level 1).
+Inserted 'SWAP' (PROCEDURE) into Scope Level 0 (line 5).
+

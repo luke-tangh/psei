@@ -107,6 +107,22 @@ void FuncDefNode::dump() const {
     std::cout << IndentHelper::current_indent << "}";
 }
 
+void ProcDefNode::dump() const {
+    std::cout << IndentHelper::current_indent << "ProcDef { ";
+    std::cout << identifier << ", ";
+    if (param) { param->dump(); } 
+    else { std::cout << "no-param"; }
+    std::cout << ", ";
+
+    std::cout << std::endl;
+    IndentHelper::indent();
+    block->dump();
+    IndentHelper::dedent();
+    std::cout << std::endl;
+
+    std::cout << IndentHelper::current_indent << "}";
+}
+
 void ParamListNode::dump() const {
     std::cout << "ParamList { ";
     for (const auto& param : params) {
@@ -117,7 +133,9 @@ void ParamListNode::dump() const {
 }
 
 void ParamNode::dump() const {
-    std::cout << "Param { " << name << ", ";
+    std::cout << "Param { ";
+    std::cout << pass_by << ", "; 
+    std::cout << name << ", ";
     type->dump();
     std::cout << " }";
 }
