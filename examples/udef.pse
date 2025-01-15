@@ -1,0 +1,22 @@
+DECLARE Pupil1 : StudentRecord 
+DECLARE Pupil2 : StudentRecord
+DECLARE Form : ARRAY[1:30] OF StudentRecord
+DECLARE ThisSeason : Season
+DECLARE NextSeason : Season
+DECLARE MyPointer : TIntPointer
+
+Pupil1.LastName <- "Johnson"
+Pupil1.Firstname <- "Leroy"
+Pupil1.DateOfBirth <- 02/01/2005 
+Pupil1.YearGroup <- 6
+Pupil1.FormGroup <- 'A'
+Pupil2 <- Pupil1
+
+FOR Index <- 1 TO 30
+    Form[Index].YearGroup <- Form[Index].YearGroup + 1 
+NEXT Index
+
+ThisSeason <- Spring 
+MyPointer <- ^ThisSeason 
+NextSeason <- MyPointer^ + 1
+// access the value stored at the memory address

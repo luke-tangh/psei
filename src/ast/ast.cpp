@@ -44,7 +44,6 @@ void DateNode::dump() const {
 }
 
 void DeclNode::dump() const {
-    std::cout << IndentHelper::current_indent;
     decl->dump();
 }
 
@@ -53,6 +52,7 @@ void BTypeNode::dump() const {
 }
 
 void ConstDeclNode::dump() const {
+    std::cout << IndentHelper::current_indent;
     std::cout << "ConstDecl { ";
     std::cout << identifier << ", ";
     val->dump();
@@ -64,6 +64,7 @@ void ConstInitValNode::dump() const {
 }
 
 void VarDeclNode::dump() const {
+    std::cout << IndentHelper::current_indent;
     std::cout << "VarDecl { ";
     std::cout << identifier << ", ";
     btype->dump();
@@ -87,6 +88,62 @@ void ArrRangeNode::dump() const {
     start->dump();
     std::cout << ", ";
     end->dump();
+    std::cout << " }";
+}
+
+void UserDefTypeNodeEnum::dump() const {
+    std::cout << IndentHelper::current_indent;
+    std::cout << "Enum { " << identifier << ", ";
+    for (const auto& s : enums) {
+        std::cout << s << " ";
+    }
+    std::cout << "}";
+}
+
+void UserDefTypeNodePointer::dump() const {
+    std::cout << IndentHelper::current_indent;
+    std::cout << "Pointer { " << identifier << ", ";
+    type->dump();
+    std::cout << " }";
+}
+
+void UserDefTypeNodeRecord::dump() const {
+    std::cout << IndentHelper::current_indent;
+    std::cout << "Record { " << identifier << ", ";
+    
+    std::cout << std::endl;
+    IndentHelper::indent();
+        for (const auto& r : record) {
+        r->dump();
+        std::cout << std::endl;
+    }
+    IndentHelper::dedent();
+
+    std::cout << IndentHelper::current_indent << "}";
+}
+
+void UserDefTypeNodeSet::dump() const {
+    std::cout << IndentHelper::current_indent;
+    std::cout << "Set { " << identifier << ", ";
+    type->dump();
+    std::cout << " }";
+}
+
+void UserDefTypeNodeSetDef::dump() const {
+    std::cout << IndentHelper::current_indent;
+    std::cout << "SetDef { " << identifier << ", ";
+    type->dump();
+    std::cout << ", ";
+    for (const auto& val : vals) {
+        val->dump();
+        std::cout << " ";
+    }
+    std::cout << "}";
+}
+
+void PointerOpNode::dump() const {
+    std::cout << "PtrOp { " << op << ", ";
+    lval->dump();
     std::cout << " }";
 }
 
@@ -287,6 +344,9 @@ void StmtNodeOutput::dump() const {
 void LValNodeId::dump() const {
     std::cout << "LVal { ";
     std::cout << identifier;
+    if (!member.empty()) {
+        std::cout << "." << member;
+    }
     std::cout << " }";
 }
 
@@ -296,6 +356,9 @@ void LValNodeArray::dump() const {
     for (const auto& i : index) {
         i->dump();
         std::cout << " ";
+    }
+    if (!member.empty()) {
+        std::cout << "." << member;
     }
     std::cout << "}";
 }

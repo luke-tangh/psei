@@ -11,6 +11,19 @@ CompUnit {
   ConstDecl { j, Exp { "abc" } }
   ConstDecl { k, Exp { 1 } }
   ConstDecl { l, Exp { 01/10/2025 } }
+  Enum { Season, Spring Summer Autumn Winter }
+  Pointer { TIntPointer, INTEGER }
+  Pointer { TCharPointer, CHAR }
+  VarDecl { MyPointer, TIntPointer }
+  Record { StudentRecord, 
+    VarDecl { LastName, STRING }
+    VarDecl { FirstName, STRING }
+    VarDecl { DateOfBirth, DATE }
+    VarDecl { YearGroup, INTEGER }
+    VarDecl { FormGroup, CHAR }
+  }
+  Set { LetterSet, CHAR }
+  SetDef { Vowels, LetterSet, 'A' 'E' 'I' 'O' 'U' }
 }
 
 Symbol Table Changes:
@@ -26,5 +39,19 @@ Inserted 'h' (CONSTANT) into Scope Level 0 (line 10).
 Inserted 'i' (CONSTANT) into Scope Level 0 (line 11).
 Inserted 'j' (CONSTANT) into Scope Level 0 (line 12).
 Inserted 'k' (CONSTANT) into Scope Level 0 (line 13).
-Inserted 'l' (CONSTANT) into Scope Level 0 (line 14).
+Inserted 'l' (CONSTANT) into Scope Level 0 (line 15).
+Inserted 'Season' (ENUM) into Scope Level 0 (line 15).
+Inserted 'TIntPointer' (POINTER) into Scope Level 0 (line 16).
+Inserted 'TCharPointer' (POINTER) into Scope Level 0 (line 17).
+Inserted 'MyPointer' (VARIABLE) into Scope Level 0 (line 18).
+Entered a new scope (Scope Level 1).
+Inserted 'LastName' (VARIABLE) into Scope Level 1 (line 21).
+Inserted 'FirstName' (VARIABLE) into Scope Level 1 (line 22).
+Inserted 'DateOfBirth' (VARIABLE) into Scope Level 1 (line 23).
+Inserted 'YearGroup' (VARIABLE) into Scope Level 1 (line 24).
+Inserted 'FormGroup' (VARIABLE) into Scope Level 1 (line 25).
+Exited scope (Scope Level 1).
+Inserted 'StudentRecord' (RECORD) into Scope Level 0 (line 26).
+Inserted 'LetterSet' (SET) into Scope Level 0 (line 28).
+Inserted 'Vowels' (SET_DEF) into Scope Level 0 (line 29).
 

@@ -18,27 +18,35 @@
 #define STYPE_CONST     "CONSTANT"
 #define STYPE_FUNC      "FUNCTION"
 #define STYPE_PROC      "PROCEDURE"
+#define STYPE_ENUM      "ENUM"
+#define STYPE_POINTER   "POINTER"
+#define STYPE_RECORD    "RECORD"
+#define STYPE_SET       "SET"
+#define STYPE_SET_DEF   "SET_DEF"
+
+#define PTR_DEREF       "PTR_DEREF"
+#define PTR_GET_ADDR    "PTR_GET_ADDR"
 
 #define PASS_BY_DEFAULT "BY_DEFAULT"
 #define PASS_BY_REF     "BY_REF"
 #define PASS_BY_VAL     "BY_VAL"
 
-#define OP_ADD    "ADD"
-#define OP_SUB    "SUB"
-#define OP_NOT    "NOT"
-#define OP_MUL    "MUL"
-#define OP_DIV    "DIV"
-#define OP_INTDIV "INTDIV"
-#define OP_MOD    "MOD"
-#define OP_LT     "LT"
-#define OP_GT     "GT"
-#define OP_LEQ    "LEQ"
-#define OP_GEQ    "GEQ"
-#define OP_EQ     "EQ"
-#define OP_NEQ    "NEQ"
-#define OP_AND    "AND"
-#define OP_OR     "OR"
-#define OP_COL    "COL"
+#define OP_ADD          "ADD"
+#define OP_SUB          "SUB"
+#define OP_NOT          "NOT"
+#define OP_MUL          "MUL"
+#define OP_DIV          "DIV"
+#define OP_INTDIV       "INTDIV"
+#define OP_MOD          "MOD"
+#define OP_LT           "LT"
+#define OP_GT           "GT"
+#define OP_LEQ          "LEQ"
+#define OP_GEQ          "GEQ"
+#define OP_EQ           "EQ"
+#define OP_NEQ          "NEQ"
+#define OP_AND          "AND"
+#define OP_OR           "OR"
+#define OP_COL          "COL"
 
 class IndentHelper {
 public:
@@ -163,6 +171,55 @@ class ArrRangeNode : public ASTBase {
 public:
     std::unique_ptr<ASTBase> start;
     std::unique_ptr<ASTBase> end;
+
+    void dump() const override;
+};
+
+class UserDefTypeNodeEnum : public ASTBase {
+public:
+    std::string identifier;
+    std::vector<std::string> enums;
+
+    void dump() const override;
+};
+
+class UserDefTypeNodePointer : public ASTBase {
+public:
+    std::string identifier;
+    std::unique_ptr<ASTBase> type;
+
+    void dump() const override;
+};
+
+class UserDefTypeNodeRecord : public ASTBase {
+public:
+    std::string identifier;
+    std::vector<std::unique_ptr<ASTBase>> record;
+
+    void dump() const override;
+};
+
+class UserDefTypeNodeSet : public ASTBase {
+public:
+    std::string identifier;
+    std::unique_ptr<ASTBase> type;
+
+    void dump() const override;
+};
+
+class UserDefTypeNodeSetDef : public ASTBase {
+public:
+    std::string identifier;
+    std::unique_ptr<ASTBase> type;
+    std::vector<std::unique_ptr<ASTBase>> vals;
+
+    void dump() const override;
+};
+
+class PointerOpNode : public ASTBase {
+public:
+    std::string op;
+    std::unique_ptr<ASTBase> lval;
 
     void dump() const override;
 };
@@ -303,12 +360,14 @@ public:
 class LValNodeId : public ASTBase {
 public:
     std::string identifier;
+    std::string member;
     void dump() const override;
 };
 
 class LValNodeArray : public ASTBase {
 public:
     std::string identifier;
+    std::string member;
     std::vector<std::unique_ptr<ASTBase>> index;
 
     void dump() const override;

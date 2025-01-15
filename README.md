@@ -14,12 +14,12 @@
   - [x] Declaring arrays
   - [x] Using arrays
 4. User-defined data types
-  - [ ] Defining user-defined data types
-    - [ ] Enumerated
-    - [ ] Pointer
-    - [ ] Record
-    - [ ] Set
-  - [ ] Using user-defined data types
+  - [x] Defining user-defined data types
+    - [x] Enumerated
+    - [x] Pointer
+    - [x] Record
+    - [x] Set
+  - [x] Using user-defined data types
 5. Common operations
   - [x] Input and output
   - [x] Arithmetic operations
@@ -35,9 +35,9 @@
   - [x] Post-condition (REPEAT) loops
   - [x] Pre-condition (WHILE) loops
 8. Procedures and functions
-  - [ ] Defining and calling procedures
+  - [x] Defining and calling procedures
   - [x] Defining and calling functions
-  - [ ] Passing parameters by value or by reference
+  - [x] Passing parameters by value or by reference
 9. File handling
   - [ ] Handling text files
   - [ ] Handling random files

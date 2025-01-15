@@ -37,6 +37,7 @@ if(NOT (L_SOURCES STREQUAL "" AND Y_SOURCES STREQUAL ""))
   string(REGEX REPLACE ".*/(.*)\\.y" "${CMAKE_CURRENT_BINARY_DIR}/\\1.tab${FB_EXT}" Y_OUTPUTS "${Y_SOURCES}")
   flex_target(Lexer ${L_SOURCES} ${L_OUTPUTS})
   bison_target(Parser ${Y_SOURCES} ${Y_OUTPUTS})
+  #bison_target(Parser ${Y_SOURCES} ${Y_OUTPUTS} COMPILE_FLAGS "-Wcounterexamples -v")
   add_flex_bison_dependency(Lexer Parser)
 endif()
 

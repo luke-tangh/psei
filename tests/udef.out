@@ -1,0 +1,34 @@
+CompUnit {
+  VarDecl { Pupil1, StudentRecord }
+  VarDecl { Pupil2, StudentRecord }
+VarDeclArray { Form, ArrRange { Exp { 1 }, Exp { 30 } } , StudentRecord }
+  VarDecl { ThisSeason, Season }
+  VarDecl { NextSeason, Season }
+  VarDecl { MyPointer, TIntPointer }
+  StmtAssign { LVal { Pupil1.LastName }, Exp { "Johnson" } }
+  StmtAssign { LVal { Pupil1.Firstname }, Exp { "Leroy" } }
+  StmtAssign { LVal { Pupil1.DateOfBirth }, Exp { 02/01/2005 } }
+  StmtAssign { LVal { Pupil1.YearGroup }, Exp { 6 } }
+  StmtAssign { LVal { Pupil1.FormGroup }, Exp { 'A' } }
+  StmtAssign { LVal { Pupil2 }, Exp { LVal { Pupil1 } } }
+  StmtFor { Index, Exp { 1 }, Exp { 30 }, no-step, 
+    Block {
+      StmtAssign { LValArr { Form, Exp { LVal { Index } } .YearGroup}, Exp { AddExpOp { ADD, LValArr { Form, Exp { LVal { Index } } .YearGroup}, 1 } } }
+    }
+  }
+  StmtAssign { LVal { ThisSeason }, Exp { LVal { Spring } } }
+  StmtAssign { LVal { MyPointer }, Exp { PtrOp { PTR_DEREF, LVal { ThisSeason } } } }
+  StmtAssign { LVal { NextSeason }, Exp { AddExpOp { ADD, PtrOp { PTR_GET_ADDR, LVal { MyPointer } }, 1 } } }
+}
+
+Symbol Table Changes:
+Entered a new scope (Scope Level 0).
+Inserted 'Pupil1' (VARIABLE) into Scope Level 0 (line 1).
+Inserted 'Pupil2' (VARIABLE) into Scope Level 0 (line 2).
+Inserted 'Form' (VARIABLE) into Scope Level 0 (line 3).
+Inserted 'ThisSeason' (VARIABLE) into Scope Level 0 (line 4).
+Inserted 'NextSeason' (VARIABLE) into Scope Level 0 (line 5).
+Inserted 'MyPointer' (VARIABLE) into Scope Level 0 (line 6).
+Entered a new scope (Scope Level 1).
+Exited scope (Scope Level 1).
+

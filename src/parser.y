@@ -40,6 +40,7 @@ void yyerror(
     bool bool_val;
     std::string *str_val;
     ASTBase *ast_val;
+    std::vector<std::string> *vec_str_val;
     std::vector<std::unique_ptr<ASTBase>> *vec_ast_val;
 }
 
@@ -53,23 +54,26 @@ void yyerror(
 %token DECLARE CONSTANT
 %token ARRAY OF
 
-// SELECTION
+// User-defined datatype
+%token TYPE ENDTYPE SET DEFINE
+
+// Selection
 %token IF THEN ELSE ENDIF
 %token CASE OTHERWISE ENDCASE
 
-// LOOPS
+// Loops
 %token FOR TO STEP NEXT
 %token REPEAT UNTIL
 %token WHILE ENDWHILE
 
-// FUNCTION & PROCEDURE
+// Function & Procedure
 %token FUNCTION ENDFUNCTION RETURN RETURNS
 %token PROCEDURE ENDPROCEDURE
 %token BYREF BYVAL
 
 // Reserved Symbols
 %token NOT
-%token ASSIGN LBRAC RBRAC LSBRAC RSBRAC ADD SUB MUL DIV INTDIV MOD
+%token ASSIGN LBRAC RBRAC LSBRAC RSBRAC ADD SUB MUL DIV INTDIV MOD HAT DOT
 %token LT GT LEQ GEQ EQ NEQ AND OR COL COMMA
 
 // Token types with semantic values
@@ -80,15 +84,17 @@ void yyerror(
 %token <bool_val> BOOL_CONST
 
 // Non-terminal types
-%type <str_val> OptionalPassBy
+%type <str_val> OptionalPassBy OptionalMember
+%type <vec_str_val> Enum
 %type <ast_val> Number String Char Boolean Date Literial
 %type <ast_val> Decl BType ConstDecl VarDecl ArrRange
+%type <ast_val> UserDefType PointerOp
 %type <ast_val> FuncDef ProcDef ParamList Param
 %type <ast_val> Block BlockItem Stmt
 %type <ast_val> LVal Case FuncCall
 %type <ast_val> OptionalElse OptionalStep OptionalOtherwise
 %type <ast_val> Exp PrimaryExp UnaryExp UnaryOp MulExp AddExp RelExp EqExp LAndExp LOrExp
-%type <vec_ast_val> ArrRangeList BlockItems Params ArgList CaseItems OptStream
+%type <vec_ast_val> ArrRangeList BlockItems Params ArgList CaseItems OptStream Record SetVals
 
 %%
 
@@ -210,6 +216,11 @@ BType
         ast->type = DTYPE_DATE;
         $$ = ast.release();
     }
+    | IDENTIFIER {
+        auto ast = std::make_unique<BTypeNode>();
+        ast->type = *std::unique_ptr<std::string>($1);
+        $$ = ast.release();
+    }
     ;
 
 ConstDecl
@@ -287,6 +298,141 @@ ArrRange
     }
     ;
 
+UserDefType
+    : TYPE IDENTIFIER EQ LBRAC Enum RBRAC {
+        auto ast = std::make_unique<UserDefTypeNodeEnum>();
+        ast->identifier = *std::unique_ptr<std::string>($2);
+        ast->enums = std::move(*$5); delete $5;
+
+        Symbol sym = Symbol(
+            ast->identifier,
+            STYPE_ENUM,
+            yylineno
+        );
+        if (!symTable->insert(sym.name, sym)) {
+            semanticError(ErrorType::IdentifierAlreadyDefined, sym.name, yylineno);
+        }
+
+        $$ = ast.release();
+    }
+    | TYPE IDENTIFIER EQ HAT BType {
+        auto ast = std::make_unique<UserDefTypeNodePointer>();
+        ast->identifier = *std::unique_ptr<std::string>($2);
+        ast->type = std::unique_ptr<ASTBase>($5);
+
+        Symbol sym = Symbol(
+            ast->identifier,
+            STYPE_POINTER,
+            yylineno
+        );
+        if (!symTable->insert(sym.name, sym)) {
+            semanticError(ErrorType::IdentifierAlreadyDefined, sym.name, yylineno);
+        }
+
+        $$ = ast.release();
+    }
+    | TYPE IDENTIFIER {
+        symTable->enterScope();
+    } Record {
+        symTable->exitScope();
+    } ENDTYPE {
+        auto ast = std::make_unique<UserDefTypeNodeRecord>();
+        ast->identifier = *std::unique_ptr<std::string>($2);
+        ast->record = std::move(*$4); delete $4;
+
+        Symbol sym = Symbol(
+            ast->identifier,
+            STYPE_RECORD,
+            yylineno
+        );
+        if (!symTable->insert(sym.name, sym)) {
+            semanticError(ErrorType::IdentifierAlreadyDefined, sym.name, yylineno);
+        }
+
+        $$ = ast.release();
+    }
+    | TYPE IDENTIFIER EQ SET OF BType {
+        auto ast = std::make_unique<UserDefTypeNodeSet>();
+        ast->identifier = *std::unique_ptr<std::string>($2);
+        ast->type = std::unique_ptr<ASTBase>($6);
+
+        Symbol sym = Symbol(
+            ast->identifier,
+            STYPE_SET,
+            yylineno
+        );
+        if (!symTable->insert(sym.name, sym)) {
+            semanticError(ErrorType::IdentifierAlreadyDefined, sym.name, yylineno);
+        }
+
+        $$ = ast.release();
+    }
+    | DEFINE IDENTIFIER LBRAC SetVals RBRAC COL BType {
+        auto ast = std::make_unique<UserDefTypeNodeSetDef>();
+        ast->identifier = *std::unique_ptr<std::string>($2);
+        ast->vals = std::move(*$4); delete $4;
+        ast->type = std::unique_ptr<ASTBase>($7);
+
+        Symbol sym = Symbol(
+            ast->identifier,
+            STYPE_SET_DEF,
+            yylineno
+        );
+        if (!symTable->insert(sym.name, sym)) {
+            semanticError(ErrorType::IdentifierAlreadyDefined, sym.name, yylineno);
+        }
+
+        $$ = ast.release();
+    }
+    ;
+
+Enum
+    : IDENTIFIER {
+        $$ = new std::vector<std::string>();
+        $$->push_back(*std::unique_ptr<std::string>($1));
+    }
+    | Enum COMMA IDENTIFIER {
+        $$ = $1;
+        $1->push_back(*std::unique_ptr<std::string>($3));
+    }
+    ;
+
+Record
+    : VarDecl {
+        $$ = new std::vector<std::unique_ptr<ASTBase>>();
+        $$->push_back(std::unique_ptr<ASTBase>($1));
+    }
+    | Record VarDecl {
+        $$ = $1;
+        $1->push_back(std::unique_ptr<ASTBase>($2));
+    }
+    ;
+
+SetVals
+    : Literial {
+        $$ = new std::vector<std::unique_ptr<ASTBase>>();
+        $$->push_back(std::unique_ptr<ASTBase>($1));
+    }
+    | SetVals COMMA Literial {
+        $$ = $1;
+        $1->push_back(std::unique_ptr<ASTBase>($3));
+    }
+
+PointerOp
+    : HAT LVal {
+        auto ast = std::make_unique<PointerOpNode>();
+        ast->op = PTR_DEREF;
+        ast->lval = std::unique_ptr<ASTBase>($2);
+        $$ = ast.release();
+    }
+    | LVal HAT {
+        auto ast = std::make_unique<PointerOpNode>();
+        ast->op = PTR_GET_ADDR;
+        ast->lval = std::unique_ptr<ASTBase>($1);
+        $$ = ast.release();
+    }
+    ;
+
 FuncDef
     : FUNCTION IDENTIFIER LBRAC ParamList RBRAC RETURNS BType Block ENDFUNCTION {
         auto ast = std::make_unique<FuncDefNode>();
@@ -334,8 +480,7 @@ ParamList
     }
     | Params {
         auto ast = std::make_unique<ParamListNode>();
-        ast->params = std::move(*$1);
-        delete $1;
+        ast->params = std::move(*$1); delete $1;
         $$ = ast.release();
     }
     ;
@@ -416,6 +561,11 @@ BlockItem
         $$ = ast.release();
     }
     | Stmt {
+        auto ast = std::make_unique<BlockItemNode>();
+        ast->stmt = std::unique_ptr<ASTBase>($1);
+        $$ = ast.release();
+    }
+    | UserDefType {
         auto ast = std::make_unique<BlockItemNode>();
         ast->stmt = std::unique_ptr<ASTBase>($1);
         $$ = ast.release();
@@ -553,18 +703,28 @@ OptStream
     ;
 
 LVal
-    : IDENTIFIER {
+    : IDENTIFIER OptionalMember {
         auto ast = std::make_unique<LValNodeId>();
         ast->identifier = *std::unique_ptr<std::string>($1);
+        ast->member = *std::unique_ptr<std::string>($2);
         $$ = ast.release();
-    } 
-    | IDENTIFIER LSBRAC ArgList RSBRAC {
+    }
+    | IDENTIFIER LSBRAC ArgList RSBRAC OptionalMember {
         auto ast = std::make_unique<LValNodeArray>();
         ast->identifier = *std::unique_ptr<std::string>($1);
         ast->index = std::move(*$3); delete $3;
+        ast->member = *std::unique_ptr<std::string>($5);
         $$ = ast.release();
     }
     ;
+
+OptionalMember
+    : /* Empty */ {
+        $$ = new std::string();
+    }
+    | DOT IDENTIFIER {
+        $$ = $2;
+    }
 
 ArgList
     : Exp {
@@ -589,6 +749,11 @@ PrimaryExp
         $$ = ast.release();
     }
     | LVal {
+        auto ast = std::make_unique<PrimaryExpNode>();
+        ast->expr = std::unique_ptr<ASTBase>($1);
+        $$ = ast.release();
+    }
+    | PointerOp {
         auto ast = std::make_unique<PrimaryExpNode>();
         ast->expr = std::unique_ptr<ASTBase>($1);
         $$ = ast.release();

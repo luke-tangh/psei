@@ -11,3 +11,19 @@ CONSTANT i = 'a'
 CONSTANT j = "abc"
 CONSTANT k = TRUE
 CONSTANT l = 01/10/2025
+
+TYPE Season = (Spring, Summer, Autumn, Winter)
+TYPE TIntPointer = ^INTEGER
+TYPE TCharPointer = ^CHAR
+DECLARE MyPointer : TIntPointer
+
+TYPE StudentRecord
+    DECLARE LastName : STRING
+    DECLARE FirstName : STRING
+    DECLARE DateOfBirth : DATE   
+    DECLARE YearGroup : INTEGER
+    DECLARE FormGroup : CHAR
+ENDTYPE
+
+TYPE LetterSet = SET OF CHAR
+DEFINE Vowels ('A','E','I','O','U'): LetterSet

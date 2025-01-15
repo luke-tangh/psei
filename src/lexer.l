@@ -59,6 +59,8 @@ Date          [0-9]{2}[-/.][0-9]{2}[-/.][0-9]{4}
 "OR"            { return OR; }
 ":"             { return COL; }
 ","             { return COMMA; }
+"^"             { return HAT; }
+"."             { return DOT; }
 
 "INTEGER"       { return INTEGER; }
 "REAL"          { return REAL; }
@@ -74,6 +76,11 @@ Date          [0-9]{2}[-/.][0-9]{2}[-/.][0-9]{4}
 "DECLARE"       { return DECLARE; }
 "ARRAY"         { return ARRAY; }
 "OF"            { return OF; }
+
+"TYPE"          { return TYPE; }
+"ENDTYPE"       { return ENDTYPE; }
+"SET"           { return SET; }
+"DEFINE"        { return DEFINE; }
 
 "IF"            { return IF; }
 "THEN"          { return THEN; }

@@ -9,11 +9,20 @@ Boolean       ::= "TRUE" | "FALSE";
 Date          ::= [0-9]{2}[-/.][0-9]{2}[-/.][0-9]{4};
 
 (* Constants & Variables *)
-Decl          ::= ConstDecl | VarDecl;
+Decl          ::= ConstDecl | VarDecl | UserDefTypeDecl;
 BType         ::= "INTEGER" | "REAL" | "CHAR" | "STRING" | "BOOLEAN" | "DATE";
 ConstDecl     ::= "CONSTANT" IDENTIFIER "=" Exp;
 VarDecl       ::= "DECLARE" IDENTIFIER ":" BType
                 | "DECLARE" IDENTIFIER ":" "ARRAY" "[" Exp ":" Exp { "," Exp ":" Exp } "]" "OF" BType;
+
+(* User-defined Data Types *)
+UserDefType   ::= "TYPE" IDENTIFIER "=" "(" Enum ")" 
+                | "TYPE" IDENTIFIER "=" "^" BType 
+                | "TYPE" IDENTIFIER Record 
+                | "TYPE" IDENTIFIER "=" "SET" "OF" BType
+                | "DEFINE" IDENTIFIER SetVals ":" BType;
+Enum          ::= IDENTIFIER { "," IDENTIFIER };
+Record        ::= VarDecl { VarDecl } "ENDTYPE";
 
 (* Function *)
 FuncDef       ::= "FUNCTION" IDENTIFIER "(" [ ParamList ] ")" "RETURNS" BType Block "ENDFUNCTION";
@@ -35,11 +44,14 @@ Stmt          ::= LVal "<-" Exp
                 | "WHILE" Exp Block "ENDWHILE"
                 | "RETURN" Exp
                 | "INPUT" IDENTIFIER
-                | "OUTPUT" Exp { "," ( Exp ) };
+                | "OUTPUT" Exp { "," ( Exp ) }
+                | UserDefType;
 
 (* Value *)
-LVal          ::= IDENTIFIER 
-                | IDENTIFIER "[" Exp { "," Exp } "]";
+LVal          ::= [^] IDENTIFIER [. IDENTIFIER]
+                | IDENTIFIER [. IDENTIFIER] [^]
+                | [^] IDENTIFIER "[" Exp { "," Exp } "]" [. IDENTIFIER]
+                | IDENTIFIER "[" Exp { "," Exp } "]" [. IDENTIFIER] [^];
 
 (* Expression *)
 PrimaryExp    ::= "(" Exp ")" | Literial | LVal | FuncCall;
