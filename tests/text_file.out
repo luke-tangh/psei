@@ -5,12 +5,12 @@ CompUnit {
   StmtWhile { Exp { UnaryExpOp { UnaryOp { NOT }, EOF { "FileA.txt" } } }, 
     Block {
       StmtReadFile { "FileA.txt", LineOfText }
-      StmtIf { Exp { EqExpCompare { EQ, LVal { LineOfText }, "" } }, 
+      StmtIf { Exp { EqExpCompare { EQ, LineOfText, "" } }, 
         Block {
           StmtWriteFile { "FileB.txt", Exp { " ----------------------------" } }
         }, 
         Block {
-          StmtWriteFile { "FileB.txt", Exp { LVal { LineOfText } } }
+          StmtWriteFile { "FileB.txt", Exp { LineOfText } }
         }
       }
     }

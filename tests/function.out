@@ -1,17 +1,17 @@
 CompUnit {
   FuncDef { INTEGER, Max, ParamList { Param { BY_DEFAULT, Number1, INTEGER } Param { BY_DEFAULT, Number2, INTEGER } }, 
     Block {
-      StmtIf { Exp { RelExpCompare { GT, LVal { Number1 }, LVal { Number2 } } }, 
+      StmtIf { Exp { RelExpCompare { GT, Number1, Number2 } }, 
         Block {
-          StmtReturn { Exp { LVal { Number1 } } }
+          StmtReturn { Exp { Number1 } }
         }, 
         Block {
-          StmtReturn { Exp { LVal { Number2 } } }
+          StmtReturn { Exp { Number2 } }
         }
       }
     }
   }
-  StmtOutput { Exp { "Penalty Fine = " } Exp { FuncCall { Max, Exp { 10 } Exp { MulExpOp { MUL, LVal { Distance }, 2 } } } } }
+  StmtOutput { Exp { "Penalty Fine = " } Exp { FuncCall { Max, Exp { 10 } Exp { MulExpOp { MUL, Distance, 2 } } } } }
 }
 
 Symbol Table Changes:

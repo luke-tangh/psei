@@ -130,6 +130,15 @@ Date          [0-9]{2}[-/.][0-9]{2}[-/.][0-9]{4}
 "BYREF"         { return BYREF; }
 "BYVAL"         { return BYVAL; }
 
+    /* Object-oriented Programming */
+"CLASS"         { return CLASS; }
+"ENDCLASS"      { return ENDCLASS; }
+"INHERITS"      { return INHERITS; }
+"PUBLIC"        { return PUBLIC; }
+"PRIVATE"       { return PRIVATE; }
+"SUPER"         { return SUPER; }
+"NEW"           { return NEW; }
+
 {Decimal}       { yylval.int_val = strtol(yytext, nullptr, 0); return INT_CONST; }
 {Octal}         { yylval.int_val = strtol(yytext, nullptr, 0); return INT_CONST; }
 {Hexadecimal}   { yylval.int_val = strtol(yytext, nullptr, 0); return INT_CONST; }

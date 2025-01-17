@@ -2,17 +2,17 @@ CompUnit {
   VarDecl { Pupil, Student }
   VarDecl { NewPupil, Student }
   VarDecl { Position, INTEGER }
-  StmtAssign { LVal { NewPupil.LastName }, Exp { "Johnson" } }
-  StmtAssign { LVal { NewPupil.Firstname }, Exp { "Leroy" } }
-  StmtAssign { LVal { NewPupil.DateOfBirth }, Exp { 02/01/2005 } }
-  StmtAssign { LVal { NewPupil.YearGroup }, Exp { 6 } }
-  StmtAssign { LVal { NewPupil.FormGroup }, Exp { 'A' } }
+  StmtAssign { NewPupil . LastName, Exp { "Johnson" } }
+  StmtAssign { NewPupil . Firstname, Exp { "Leroy" } }
+  StmtAssign { NewPupil . DateOfBirth, Exp { 02/01/2005 } }
+  StmtAssign { NewPupil . YearGroup, Exp { 6 } }
+  StmtAssign { NewPupil . FormGroup, Exp { 'A' } }
   StmtOpenFile { "StudentFile.Dat", RANDOM }
   StmtFor { Position, Exp { 20 }, Exp { 10 }, Exp { UnaryExpOp { UnaryOp { SUB }, 1 } }, 
     Block {
-      StmtSeek { "StudentFile.Dat", Exp { LVal { Position } } }
+      StmtSeek { "StudentFile.Dat", Exp { Position } }
       StmtGetRecord { "StudentFile.Dat", Pupil }
-      StmtSeek { "StudentFile.Dat", Exp { AddExpOp { ADD, LVal { Position }, 1 } } }
+      StmtSeek { "StudentFile.Dat", Exp { AddExpOp { ADD, Position, 1 } } }
       StmtPutRecord { "StudentFile.Dat", Pupil }
     }
   }

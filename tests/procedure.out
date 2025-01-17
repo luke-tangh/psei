@@ -1,9 +1,9 @@
 CompUnit {
   ProcDef { SWAP, ParamList { Param { BY_REF, X, INTEGER } Param { BY_DEFAULT, Y, INTEGER } }, 
     Block {
-      StmtAssign { LVal { Temp }, Exp { LVal { X } } }
-      StmtAssign { LVal { X }, Exp { LVal { Y } } }
-      StmtAssign { LVal { Y }, Exp { LVal { Temp } } }
+      StmtAssign { Temp, Exp { X } }
+      StmtAssign { X, Exp { Y } }
+      StmtAssign { Y, Exp { Temp } }
     }
   }
 }

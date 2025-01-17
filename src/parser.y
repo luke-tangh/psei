@@ -83,6 +83,11 @@ void yyerror(
 %token PROCEDURE ENDPROCEDURE
 %token BYREF BYVAL
 
+// Object-oriented Programming
+%token CLASS ENDCLASS INHERITS
+%token PUBLIC PRIVATE
+%token SUPER NEW
+
 // Token types with semantic values
 %token <int_val> INT_CONST
 %token <float_val> REAL_CONST
@@ -91,18 +96,19 @@ void yyerror(
 %token <bool_val> BOOL_CONST
 
 // Non-terminal types
-%type <str_val> OptionalPassBy OptionalMember FileMode
+%type <str_val> OptionalPassBy OptionalInherits FileMode AccessLevel
 %type <vec_str_val> Enum
 %type <ast_val> Number String Char Boolean Date Literial
 %type <ast_val> Decl BType ConstDecl VarDecl ArrRange
 %type <ast_val> UserDefType PointerOp
 %type <ast_val> FuncDef ProcDef ParamList Param
+%type <ast_val> ClassDef ClassMember ClassProperty ClassMethod ConstructorDef ClassInit
 %type <ast_val> Block BlockItem Stmt
 %type <ast_val> LVal Case FuncCall
 %type <ast_val> OptionalElse OptionalStep OptionalOtherwise
 %type <ast_val> Exp PrimaryExp UnaryExp UnaryOp MulExp AddExp RelExp EqExp LAndExp LOrExp EOFExp
 
-%type <vec_ast_val> BlockItems CaseItems OptStream Params Record SetVals
+%type <vec_ast_val> ClassMembers BlockItems CaseItems OptStream Params Record SetVals
 %type <vec_ast_val> ArrRangeList ArgList
 
 %%
@@ -121,6 +127,10 @@ CompUnit
         comp_unit->items.push_back(std::unique_ptr<ASTBase>($2));
     }
     | CompUnit ProcDef {
+        auto comp_unit = static_cast<CompUnitNode*>(ast.get());
+        comp_unit->items.push_back(std::unique_ptr<ASTBase>($2));
+    }
+    | CompUnit ClassDef {
         auto comp_unit = static_cast<CompUnitNode*>(ast.get());
         comp_unit->items.push_back(std::unique_ptr<ASTBase>($2));
     }
@@ -178,8 +188,21 @@ Date
     ;
 
 Literial
-    : Number | String | Char | Boolean | Date
-    ;
+    : Number { 
+        $$ = $1; 
+    }
+    | String {
+        $$ = $1;
+    }
+    | Char {
+        $$ = $1;
+    }
+    | Boolean {
+        $$ = $1;
+    }
+    | Date {
+        $$ = $1;
+    }
 
 Decl
     : ConstDecl {
@@ -522,15 +545,122 @@ OptionalPassBy
     ;
 
 FuncCall
-    : IDENTIFIER LBRAC RBRAC {
+    : LVal LBRAC RBRAC {
         auto ast = std::make_unique<FuncCallNode>();
-        ast->identifier = *std::unique_ptr<std::string>($1);
+        ast->func = std::unique_ptr<ASTBase>($1);
         $$ = ast.release();
     }
-    | IDENTIFIER LBRAC ArgList RBRAC {
+    | LVal LBRAC ArgList RBRAC {
         auto ast = std::make_unique<FuncCallNode>();
-        ast->identifier = *std::unique_ptr<std::string>($1);
+        ast->func = std::unique_ptr<ASTBase>($1);
         ast->args = std::move(*$3); delete $3;
+        $$ = ast.release();
+    }
+
+ClassDef
+    : CLASS IDENTIFIER OptionalInherits {
+        symTable->enterScope();
+    } ClassMembers {
+        symTable->exitScope();
+    } ENDCLASS {
+        auto ast = std::make_unique<ClassDefNode>();
+        ast->identifier = *std::unique_ptr<std::string>($2);
+        ast->parent = *std::unique_ptr<std::string>($3);
+        ast->members = std::move(*$5); delete $5;
+        $$ = ast.release();
+    }
+    ;
+
+OptionalInherits
+    : INHERITS IDENTIFIER {
+        $$ = new std::string(*$2);
+    }
+    | /* Empty */ {
+        $$ = new std::string();
+    }
+    ;
+
+ClassMembers
+    : ClassMember {
+        $$ = new std::vector<std::unique_ptr<ASTBase>>();
+        $$->push_back(std::unique_ptr<ASTBase>($1));
+    }
+    | ClassMembers ClassMember {
+        $$ = $1;
+        $1->push_back(std::unique_ptr<ASTBase>($2));
+    }
+
+ClassMember
+    : AccessLevel ConstructorDef {
+        auto ast = std::make_unique<ClassMemberNode>();
+        ast->access = *std::unique_ptr<std::string>($1);
+        ast->member = std::unique_ptr<ASTBase>($2);
+        $$ = ast.release();
+    }
+    | AccessLevel ClassMethod {
+        auto ast = std::make_unique<ClassMemberNode>();
+        ast->access = *std::unique_ptr<std::string>($1);
+        ast->member = std::unique_ptr<ASTBase>($2);
+        $$ = ast.release();
+    }
+    | AccessLevel ClassProperty {
+        auto ast = std::make_unique<ClassMemberNode>();
+        ast->access = *std::unique_ptr<std::string>($1);
+        ast->member = std::unique_ptr<ASTBase>($2);
+        $$ = ast.release();
+    }
+
+AccessLevel
+    : PUBLIC {
+        $$ = new std::string(ACCESS_PUBLIC);
+    }
+    | PRIVATE {
+        $$ = new std::string(ACCESS_PRIVATE);
+    }
+    ;
+
+ClassProperty
+    : IDENTIFIER COL BType {
+        auto ast = std::make_unique<VarDeclNode>();
+        ast->identifier = *std::unique_ptr<std::string>($1);
+        ast->btype = std::unique_ptr<ASTBase>($3);
+
+        Symbol sym = Symbol(
+            ast->identifier,
+            STYPE_VAR,
+            yylineno
+        );
+        if (!symTable->insert(sym.name, sym)) {
+            semanticError(ErrorType::IdentifierAlreadyDefined, sym.name, yylineno);
+        }
+
+        $$ = ast.release();
+    }
+    ;
+
+ClassMethod
+    : FuncDef {
+        $$ = $1;
+    }
+    | ProcDef {
+        $$ = $1;
+    }
+    ;
+
+ConstructorDef
+    : PROCEDURE NEW LBRAC ParamList RBRAC Block ENDPROCEDURE {
+        auto ast = std::make_unique<ConstructorDefNode>();
+        ast->param = std::unique_ptr<ASTBase>($4);
+        ast->block = std::unique_ptr<ASTBase>($6);
+        $$ = ast.release();
+    }
+    ;
+
+ClassInit
+    : NEW IDENTIFIER LBRAC ArgList RBRAC {
+        auto ast = std::make_unique<ClassInitNode>();
+        ast->identifier = *std::unique_ptr<std::string>($2);
+        ast->args = std::move(*$4); delete $4;
         $$ = ast.release();
     }
 
@@ -684,6 +814,11 @@ Stmt
         ast->identifier = *std::unique_ptr<std::string>($4);
         $$ = ast.release();
     }
+    | SUPER DOT NEW LBRAC ArgList RBRAC {
+        auto ast = std::make_unique<StmtNodeSuper>();
+        ast->args = std::move(*$5); delete $5;
+        $$ = ast.release();
+    }
     ;
 
 OptionalElse
@@ -765,31 +900,28 @@ FileMode
     | RANDOM {
         $$ = new std::string(FILE_OP_RANDOM);
     }
-;
+    ;
 
 LVal
-    : IDENTIFIER OptionalMember {
+    : IDENTIFIER {
         auto ast = std::make_unique<LValNodeId>();
+        ast->parent = nullptr;
         ast->identifier = *std::unique_ptr<std::string>($1);
-        ast->member = *std::unique_ptr<std::string>($2);
         $$ = ast.release();
     }
-    | IDENTIFIER LSBRAC ArgList RSBRAC OptionalMember {
+    | LVal DOT IDENTIFIER {
+        auto ast = std::make_unique<LValNodeId>();
+        ast->parent = std::unique_ptr<ASTBase>($1);
+        ast->identifier = *std::unique_ptr<std::string>($3);
+        $$ = ast.release();
+    }
+    | LVal LSBRAC ArgList RSBRAC {
         auto ast = std::make_unique<LValNodeArray>();
-        ast->identifier = *std::unique_ptr<std::string>($1);
-        ast->index = std::move(*$3); delete $3;
-        ast->member = *std::unique_ptr<std::string>($5);
+        ast->parent = std::unique_ptr<ASTBase>($1);
+        ast->indices = std::move(*$3); delete $3;
         $$ = ast.release();
     }
     ;
-
-OptionalMember
-    : /* Empty */ {
-        $$ = new std::string();
-    }
-    | DOT IDENTIFIER {
-        $$ = $2;
-    }
 
 ArgList
     : Exp {
@@ -824,6 +956,11 @@ PrimaryExp
         $$ = ast.release();
     }
     | FuncCall {
+        auto ast = std::make_unique<PrimaryExpNode>();
+        ast->expr = std::unique_ptr<ASTBase>($1);
+        $$ = ast.release();
+    }
+    | ClassInit {
         auto ast = std::make_unique<PrimaryExpNode>();
         ast->expr = std::unique_ptr<ASTBase>($1);
         $$ = ast.release();

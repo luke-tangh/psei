@@ -1,10 +1,10 @@
 CompUnit {
-  StmtAssign { LValArr { StudentNames, Exp { 1 } }, Exp { "Ali" } }
-  StmtAssign { LValArr { NoughtsAndCrosses, Exp { 2 } Exp { 3 } }, Exp { 'X' } }
-  StmtAssign { LValArr { StudentNames, Exp { AddExpOp { ADD, LVal { n }, 1 } } }, Exp { LValArr { StudentNames, Exp { LVal { n } } } } }
+  StmtAssign { StudentNames { Exp { 1 } }, Exp { "Ali" } }
+  StmtAssign { NoughtsAndCrosses { Exp { 2 } Exp { 3 } }, Exp { 'X' } }
+  StmtAssign { StudentNames { Exp { AddExpOp { ADD, n, 1 } } }, Exp { StudentNames { Exp { n } } } }
   StmtFor { Index, Exp { 1 }, Exp { 30 }, no-step, 
     Block {
-      StmtAssign { LValArr { StudentNames, Exp { LVal { Index } } }, Exp { "" } }
+      StmtAssign { StudentNames { Exp { Index } }, Exp { "" } }
     }
   }
 }

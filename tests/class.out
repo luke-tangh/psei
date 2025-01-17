@@ -1,0 +1,42 @@
+CompUnit {
+  ClassDef { Pet, no-parent, 
+    ClassMember { PRIVATE, 
+      VarDecl { Name, STRING }
+    }
+    ClassMember { PUBLIC, 
+      ConstructorDef { ParamList { Param { BY_DEFAULT, GivenName, STRING } }, 
+        Block {
+          StmtAssign { Name, Exp { GivenName } }
+        }
+      }
+    }
+  }
+  ClassDef { Cat, Pet, 
+    ClassMember { PRIVATE, 
+      VarDecl { Breed, STRING }
+    }
+    ClassMember { PUBLIC, 
+      ConstructorDef { ParamList { Param { BY_DEFAULT, GivenName, STRING } Param { BY_DEFAULT, GivenBreed, STRING } }, 
+        Block {
+          StmtSuper { Exp { GivenName } }
+          StmtAssign { Breed, Exp { GivenBreed } }
+        }
+      }
+    }
+  }
+  StmtAssign { MyCat, Exp { ClassInit { Cat, Exp { "Kitty" } Exp { "Shorthaired" } } } }
+}
+
+Symbol Table Changes:
+Entered a new scope (Scope Level 0).
+Entered a new scope (Scope Level 1).
+Inserted 'Name' (VARIABLE) into Scope Level 1 (line 2).
+Entered a new scope (Scope Level 2).
+Exited scope (Scope Level 2).
+Exited scope (Scope Level 1).
+Entered a new scope (Scope Level 1).
+Inserted 'Breed' (VARIABLE) into Scope Level 1 (line 9).
+Entered a new scope (Scope Level 2).
+Exited scope (Scope Level 2).
+Exited scope (Scope Level 1).
+

@@ -5,20 +5,20 @@ VarDeclArray { Form, ArrRange { Exp { 1 }, Exp { 30 } } , StudentRecord }
   VarDecl { ThisSeason, Season }
   VarDecl { NextSeason, Season }
   VarDecl { MyPointer, TIntPointer }
-  StmtAssign { LVal { Pupil1.LastName }, Exp { "Johnson" } }
-  StmtAssign { LVal { Pupil1.Firstname }, Exp { "Leroy" } }
-  StmtAssign { LVal { Pupil1.DateOfBirth }, Exp { 02/01/2005 } }
-  StmtAssign { LVal { Pupil1.YearGroup }, Exp { 6 } }
-  StmtAssign { LVal { Pupil1.FormGroup }, Exp { 'A' } }
-  StmtAssign { LVal { Pupil2 }, Exp { LVal { Pupil1 } } }
+  StmtAssign { Pupil1 . LastName, Exp { "Johnson" } }
+  StmtAssign { Pupil1 . Firstname, Exp { "Leroy" } }
+  StmtAssign { Pupil1 . DateOfBirth, Exp { 02/01/2005 } }
+  StmtAssign { Pupil1 . YearGroup, Exp { 6 } }
+  StmtAssign { Pupil1 . FormGroup, Exp { 'A' } }
+  StmtAssign { Pupil2, Exp { Pupil1 } }
   StmtFor { Index, Exp { 1 }, Exp { 30 }, no-step, 
     Block {
-      StmtAssign { LValArr { Form, Exp { LVal { Index } } .YearGroup }, Exp { AddExpOp { ADD, LValArr { Form, Exp { LVal { Index } } .YearGroup }, 1 } } }
+      StmtAssign { Form { Exp { Index } } . YearGroup, Exp { AddExpOp { ADD, Form { Exp { Index } } . YearGroup, 1 } } }
     }
   }
-  StmtAssign { LVal { ThisSeason }, Exp { LVal { Spring } } }
-  StmtAssign { LVal { MyPointer }, Exp { PtrOp { PTR_DEREF, LVal { ThisSeason } } } }
-  StmtAssign { LVal { NextSeason }, Exp { AddExpOp { ADD, PtrOp { PTR_GET_ADDR, LVal { MyPointer } }, 1 } } }
+  StmtAssign { ThisSeason, Exp { Spring } }
+  StmtAssign { MyPointer, Exp { PtrOp { PTR_DEREF, ThisSeason } } }
+  StmtAssign { NextSeason, Exp { AddExpOp { ADD, PtrOp { PTR_GET_ADDR, MyPointer }, 1 } } }
 }
 
 Symbol Table Changes:

@@ -1,5 +1,5 @@
 CompUnit {
-  StmtRepeat { Exp { EqExpCompare { EQ, LVal { Password }, "Secret" } }, 
+  StmtRepeat { Exp { EqExpCompare { EQ, Password, "Secret" } }, 
     Block {
       StmtOutput { Exp { "Please enter the password" } }
       StmtInput { Password }

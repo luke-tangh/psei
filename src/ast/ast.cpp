@@ -198,7 +198,65 @@ void ParamNode::dump() const {
 }
 
 void FuncCallNode::dump() const {
-    std::cout << "FuncCall { " << identifier << ", ";
+    std::cout << "FuncCall { ";
+    func->dump();
+    std::cout << ", ";
+    for (const auto& a : args) {
+        a->dump();
+        std::cout << " ";
+    }
+    std::cout << "}";
+}
+
+void ClassDefNode::dump() const {
+    std::cout << IndentHelper::current_indent << "ClassDef { ";
+    std::cout << identifier << ", ";
+    if (!parent.empty()) { std::cout << parent; }
+    else { std::cout << "no-parent"; }
+    std::cout << ", ";
+
+    std::cout << std::endl;
+    IndentHelper::indent();
+    for (const auto& member : members) {
+        member->dump();
+        std::cout << std::endl;
+    }
+    IndentHelper::dedent();
+
+    std::cout << IndentHelper::current_indent << "}";
+}
+
+void ClassMemberNode::dump() const {
+    std::cout << IndentHelper::current_indent << "ClassMember { ";
+    std::cout << access << ", ";
+
+    std::cout << std::endl;
+    IndentHelper::indent();
+    member->dump();
+    IndentHelper::dedent();
+    std::cout << std::endl;
+
+    std::cout << IndentHelper::current_indent << "}";
+}
+
+void ConstructorDefNode::dump() const {
+    std::cout << IndentHelper::current_indent << "ConstructorDef { ";
+    if (param) { param->dump(); } 
+    else { std::cout << "no-param"; }
+    std::cout << ", ";
+
+    std::cout << std::endl;
+    IndentHelper::indent();
+    block->dump();
+    IndentHelper::dedent();
+    std::cout << std::endl;
+
+    std::cout << IndentHelper::current_indent << "}";
+}
+
+void ClassInitNode::dump() const {
+    std::cout << "ClassInit { ";
+    std::cout << identifier << ", ";
     for (const auto& a : args) {
         a->dump();
         std::cout << " ";
@@ -391,24 +449,31 @@ void StmtNodePutRecord::dump() const {
     std::cout << " }";
 }
 
-void LValNodeId::dump() const {
-    std::cout << "LVal { ";
-    std::cout << identifier;
-    if (!member.empty()) {
-        std::cout << "." << member;
+void StmtNodeSuper::dump() const {
+    std::cout << IndentHelper::current_indent << "StmtSuper { ";
+    for (const auto& a : args) {
+        a->dump();
+        std::cout << " ";
     }
-    std::cout << " }";
+    std::cout << "}";
+}
+
+void LValNodeId::dump() const {
+    if (parent) { 
+        parent->dump(); 
+        std::cout << " . ";
+    }
+    std::cout << identifier;
 }
 
 void LValNodeArray::dump() const {
-    std::cout << "LValArr { ";
-    std::cout << identifier << ", ";
-    for (const auto& i : index) {
-        i->dump();
-        std::cout << " ";
+    if (parent) { 
+        parent->dump();
     }
-    if (!member.empty()) {
-        std::cout << "." << member << " ";
+    std::cout << " { ";
+    for (const auto& index : indices) {
+        index->dump();
+        std::cout << " ";
     }
     std::cout << "}";
 }

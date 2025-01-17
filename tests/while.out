@@ -1,7 +1,7 @@
 CompUnit {
-  StmtWhile { Exp { RelExpCompare { GT, LVal { Number }, 9 } }, 
+  StmtWhile { Exp { RelExpCompare { GT, Number, 9 } }, 
     Block {
-      StmtAssign { LVal { Number }, Exp { AddExpOp { SUB, LVal { Number }, 9 } } }
+      StmtAssign { Number, Exp { AddExpOp { SUB, Number, 9 } } }
     }
   }
 }

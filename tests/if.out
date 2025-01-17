@@ -1,20 +1,20 @@
 CompUnit {
-  StmtIf { Exp { RelExpCompare { GT, LVal { ChallengerScore }, LVal { ChampionScore } } }, 
+  StmtIf { Exp { RelExpCompare { GT, ChallengerScore, ChampionScore } }, 
     Block {
-      StmtIf { Exp { RelExpCompare { GT, LVal { ChallengerScore }, LVal { HighestScore } } }, 
+      StmtIf { Exp { RelExpCompare { GT, ChallengerScore, HighestScore } }, 
         Block {
-          StmtOutput { Exp { LVal { ChallengerName } } Exp { " is champion and highest scorer" } }
+          StmtOutput { Exp { ChallengerName } Exp { " is champion and highest scorer" } }
         }, 
         Block {
-          StmtOutput { Exp { LVal { ChallengerName } } Exp { " is the new champion" } }
+          StmtOutput { Exp { ChallengerName } Exp { " is the new champion" } }
         }
       }
     }, 
     Block {
-      StmtOutput { Exp { LVal { ChampionName } } Exp { " is still the champion" } }
-      StmtIf { Exp { RelExpCompare { GT, LVal { ChampionScore }, LVal { HighestScore } } }, 
+      StmtOutput { Exp { ChampionName } Exp { " is still the champion" } }
+      StmtIf { Exp { RelExpCompare { GT, ChampionScore, HighestScore } }, 
         Block {
-          StmtOutput { Exp { LVal { ChampionName } } Exp { " is also the highest scorer" } }
+          StmtOutput { Exp { ChampionName } Exp { " is also the highest scorer" } }
         }, 
         no-else
       }

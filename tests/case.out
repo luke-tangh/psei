@@ -3,22 +3,22 @@ CompUnit {
   StmtCase { Move, 
   Case { 'W', 
     Block {
-      StmtAssign { LVal { Position }, Exp { AddExpOp { SUB, LVal { Position }, 10 } } }
+      StmtAssign { Position, Exp { AddExpOp { SUB, Position, 10 } } }
     }
   }
   Case { 'S', 
     Block {
-      StmtAssign { LVal { Position }, Exp { AddExpOp { ADD, LVal { Position }, 10 } } }
+      StmtAssign { Position, Exp { AddExpOp { ADD, Position, 10 } } }
     }
   }
   Case { 'A', 
     Block {
-      StmtAssign { LVal { Position }, Exp { AddExpOp { SUB, LVal { Position }, 1 } } }
+      StmtAssign { Position, Exp { AddExpOp { SUB, Position, 1 } } }
     }
   }
   Case { 'D', 
     Block {
-      StmtAssign { LVal { Position }, Exp { AddExpOp { ADD, LVal { Position }, 1 } } }
+      StmtAssign { Position, Exp { AddExpOp { ADD, Position, 1 } } }
     }
   }
   }
@@ -26,22 +26,22 @@ CompUnit {
   StmtCase { Move, 
   Case { 70, 100, 
     Block {
-      StmtAssign { LVal { Grade }, Exp { 'A' } }
+      StmtAssign { Grade, Exp { 'A' } }
     }
   }
   Case { 60, 70, 
     Block {
-      StmtAssign { LVal { Grade }, Exp { 'B' } }
+      StmtAssign { Grade, Exp { 'B' } }
     }
   }
   Case { 50, 60, 
     Block {
-      StmtAssign { LVal { Grade }, Exp { 'C' } }
+      StmtAssign { Grade, Exp { 'C' } }
     }
   }
   Case { 40, 50, 
     Block {
-      StmtAssign { LVal { Grade }, Exp { 'D' } }
+      StmtAssign { Grade, Exp { 'D' } }
     }
   }
   }

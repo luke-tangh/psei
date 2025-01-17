@@ -36,6 +36,9 @@
 #define FILE_OP_APPEND  "APPEND"
 #define FILE_OP_RANDOM  "RANDOM"
 
+#define ACCESS_PUBLIC   "PUBLIC"
+#define ACCESS_PRIVATE  "PRIVATE"
+
 #define OP_ADD          "ADD"
 #define OP_SUB          "SUB"
 #define OP_NOT          "NOT"
@@ -265,8 +268,41 @@ public:
 
 class FuncCallNode : public ASTBase {
 public:
+    std::unique_ptr<ASTBase> func;
+    std::vector<std::unique_ptr<ASTBase>> args;
+    void dump() const override;
+};
+
+class ClassDefNode : public ASTBase {
+public:
+    std::string identifier;
+    std::string parent;
+    std::vector<std::unique_ptr<ASTBase>> members;
+
+    void dump() const override;
+};
+
+class ClassMemberNode : public ASTBase {
+public:
+    std::string access;
+    std::unique_ptr<ASTBase> member;
+
+    void dump() const override;
+};
+
+class ConstructorDefNode : public ASTBase {
+public:
+    std::unique_ptr<ASTBase> param;
+    std::unique_ptr<ASTBase> block;
+
+    void dump() const override;
+};
+
+class ClassInitNode : public ASTBase {
+public:
     std::string identifier;
     std::vector<std::unique_ptr<ASTBase>> args;
+
     void dump() const override;
 };
 
@@ -410,18 +446,23 @@ public:
     void dump() const override;
 };
 
+class StmtNodeSuper : public ASTBase {
+public:
+    std::vector<std::unique_ptr<ASTBase>> args;
+    void dump() const override;
+};
+
 class LValNodeId : public ASTBase {
 public:
+    std::unique_ptr<ASTBase> parent;
     std::string identifier;
-    std::string member;
     void dump() const override;
 };
 
 class LValNodeArray : public ASTBase {
 public:
-    std::string identifier;
-    std::string member;
-    std::vector<std::unique_ptr<ASTBase>> index;
+    std::unique_ptr<ASTBase> parent;
+    std::vector<std::unique_ptr<ASTBase>> indices;
 
     void dump() const override;
 };
