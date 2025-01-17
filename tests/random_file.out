@@ -1,0 +1,31 @@
+CompUnit {
+  VarDecl { Pupil, Student }
+  VarDecl { NewPupil, Student }
+  VarDecl { Position, INTEGER }
+  StmtAssign { LVal { NewPupil.LastName }, Exp { "Johnson" } }
+  StmtAssign { LVal { NewPupil.Firstname }, Exp { "Leroy" } }
+  StmtAssign { LVal { NewPupil.DateOfBirth }, Exp { 02/01/2005 } }
+  StmtAssign { LVal { NewPupil.YearGroup }, Exp { 6 } }
+  StmtAssign { LVal { NewPupil.FormGroup }, Exp { 'A' } }
+  StmtOpenFile { "StudentFile.Dat", RANDOM }
+  StmtFor { Position, Exp { 20 }, Exp { 10 }, Exp { UnaryExpOp { UnaryOp { SUB }, 1 } }, 
+    Block {
+      StmtSeek { "StudentFile.Dat", Exp { LVal { Position } } }
+      StmtGetRecord { "StudentFile.Dat", Pupil }
+      StmtSeek { "StudentFile.Dat", Exp { AddExpOp { ADD, LVal { Position }, 1 } } }
+      StmtPutRecord { "StudentFile.Dat", Pupil }
+    }
+  }
+  StmtSeek { "StudentFile.Dat", Exp { 10 } }
+  StmtPutRecord { "StudentFile.Dat", NewPupil }
+  StmtCloseFile { "StudentFile.dat" }
+}
+
+Symbol Table Changes:
+Entered a new scope (Scope Level 0).
+Inserted 'Pupil' (VARIABLE) into Scope Level 0 (line 1).
+Inserted 'NewPupil' (VARIABLE) into Scope Level 0 (line 2).
+Inserted 'Position' (VARIABLE) into Scope Level 0 (line 3).
+Entered a new scope (Scope Level 1).
+Exited scope (Scope Level 1).
+

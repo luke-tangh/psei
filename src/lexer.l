@@ -37,6 +37,7 @@ Date          [0-9]{2}[-/.][0-9]{2}[-/.][0-9]{4}
 {WhiteSpace}    { /* Ignore */ }
 {LineComment}   { /* Ignore */ }
 
+    /* Reserved symbols */
 "<-"            { return ASSIGN; }
 "("             { return LBRAC; }
 ")"             { return RBRAC; }
@@ -62,6 +63,7 @@ Date          [0-9]{2}[-/.][0-9]{2}[-/.][0-9]{4}
 "^"             { return HAT; }
 "."             { return DOT; }
 
+    /* Data types */
 "INTEGER"       { return INTEGER; }
 "REAL"          { return REAL; }
 "CHAR"          { return CHAR; }
@@ -69,19 +71,37 @@ Date          [0-9]{2}[-/.][0-9]{2}[-/.][0-9]{4}
 "BOOLEAN"       { return BOOLEAN; }
 "DATE"          { return DATE; }
 
+    /* IO */
 "INPUT"         { return INPUT; }
 "OUTPUT"        { return OUTPUT; }
 
+    /* File operations */
+"OPENFILE"      { return OPENFILE; }
+"READ"          { return READ; }
+"WRITE"         { return WRITE; }
+"APPEND"        { return APPEND; }
+"RANDOM"        { return RANDOM; }
+"READFILE"      { return READFILE; }
+"WRITEFILE"     { return WRITEFILE; }
+"CLOSEFILE"     { return CLOSEFILE; }
+"EOF"           { return END_OF_FILE; }
+"SEEK"          { return SEEK; }
+"GETRECORD"     { return GETRECORD; }
+"PUTRECORD"     { return PUTRECORD; }
+
+    /* Constant & Declare */
 "CONSTANT"      { return CONSTANT; }
 "DECLARE"       { return DECLARE; }
 "ARRAY"         { return ARRAY; }
 "OF"            { return OF; }
 
+    /* User-defined datatypes */
 "TYPE"          { return TYPE; }
 "ENDTYPE"       { return ENDTYPE; }
 "SET"           { return SET; }
 "DEFINE"        { return DEFINE; }
 
+    /* Selections */
 "IF"            { return IF; }
 "THEN"          { return THEN; }
 "ELSE"          { return ELSE; }
@@ -90,6 +110,7 @@ Date          [0-9]{2}[-/.][0-9]{2}[-/.][0-9]{4}
 "OTHERWISE"     { return OTHERWISE; }
 "ENDCASE"       { return ENDCASE; } 
 
+    /* Loops */
 "FOR"           { return FOR; }
 "TO"            { return TO; }
 "STEP"          { return STEP; }
@@ -99,6 +120,7 @@ Date          [0-9]{2}[-/.][0-9]{2}[-/.][0-9]{4}
 "WHILE"         { return WHILE; }
 "ENDWHILE"      { return ENDWHILE; }
 
+    /* Function & Procedure */
 "FUNCTION"      { return FUNCTION; }
 "RETURNS"       { return RETURNS; }
 "RETURN"        { return RETURN; }

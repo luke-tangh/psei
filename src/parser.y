@@ -44,20 +44,32 @@ void yyerror(
     std::vector<std::unique_ptr<ASTBase>> *vec_ast_val;
 }
 
+// Reserved symbols
+%token NOT AND OR
+%token LBRAC RBRAC LSBRAC RSBRAC
+%token ADD SUB MUL DIV INTDIV MOD
+%token ASSIGN HAT DOT COL COMMA
+%token LT GT LEQ GEQ EQ NEQ
+
 // Data types
 %token INTEGER REAL CHAR STRING BOOLEAN DATE
 
-// Reserved keywords
+// IO
 %token INPUT OUTPUT
 
-// Initialisation
-%token DECLARE CONSTANT
+// File operations
+%token OPENFILE READ WRITE APPEND RANDOM
+%token READFILE WRITEFILE CLOSEFILE
+%token END_OF_FILE SEEK GETRECORD PUTRECORD
+
+// Constant & Declare
+%token CONSTANT DECLARE
 %token ARRAY OF
 
-// User-defined datatype
+// User-defined datatypes
 %token TYPE ENDTYPE SET DEFINE
 
-// Selection
+// Selections
 %token IF THEN ELSE ENDIF
 %token CASE OTHERWISE ENDCASE
 
@@ -71,11 +83,6 @@ void yyerror(
 %token PROCEDURE ENDPROCEDURE
 %token BYREF BYVAL
 
-// Reserved Symbols
-%token NOT
-%token ASSIGN LBRAC RBRAC LSBRAC RSBRAC ADD SUB MUL DIV INTDIV MOD HAT DOT
-%token LT GT LEQ GEQ EQ NEQ AND OR COL COMMA
-
 // Token types with semantic values
 %token <int_val> INT_CONST
 %token <float_val> REAL_CONST
@@ -84,7 +91,7 @@ void yyerror(
 %token <bool_val> BOOL_CONST
 
 // Non-terminal types
-%type <str_val> OptionalPassBy OptionalMember
+%type <str_val> OptionalPassBy OptionalMember FileMode
 %type <vec_str_val> Enum
 %type <ast_val> Number String Char Boolean Date Literial
 %type <ast_val> Decl BType ConstDecl VarDecl ArrRange
@@ -93,8 +100,10 @@ void yyerror(
 %type <ast_val> Block BlockItem Stmt
 %type <ast_val> LVal Case FuncCall
 %type <ast_val> OptionalElse OptionalStep OptionalOtherwise
-%type <ast_val> Exp PrimaryExp UnaryExp UnaryOp MulExp AddExp RelExp EqExp LAndExp LOrExp
-%type <vec_ast_val> ArrRangeList BlockItems Params ArgList CaseItems OptStream Record SetVals
+%type <ast_val> Exp PrimaryExp UnaryExp UnaryOp MulExp AddExp RelExp EqExp LAndExp LOrExp EOFExp
+
+%type <vec_ast_val> BlockItems CaseItems OptStream Params Record SetVals
+%type <vec_ast_val> ArrRangeList ArgList
 
 %%
 
@@ -634,6 +643,47 @@ Stmt
         ast->stream = std::move(*$2); delete $2;
         $$ = ast.release();
     }
+    | OPENFILE String FOR FileMode {
+        auto ast = std::make_unique<StmtNodeOpenFile>();
+        ast->filename = std::unique_ptr<ASTBase>($2);
+        ast->mode = *std::unique_ptr<std::string>($4);
+        $$ = ast.release();
+    }
+    | READFILE String COMMA IDENTIFIER {
+        auto ast = std::make_unique<StmtNodeReadFile>();
+        ast->filename = std::unique_ptr<ASTBase>($2);
+        ast->identifier = *std::unique_ptr<std::string>($4);
+        $$ = ast.release();
+    }
+    | WRITEFILE String COMMA Exp {
+        auto ast = std::make_unique<StmtNodeWriteFile>();
+        ast->filename = std::unique_ptr<ASTBase>($2);
+        ast->expr = std::unique_ptr<ASTBase>($4);
+        $$ = ast.release();
+    }
+    | CLOSEFILE String {
+        auto ast = std::make_unique<StmtNodeCloseFile>();
+        ast->filename = std::unique_ptr<ASTBase>($2);
+        $$ = ast.release();
+    }
+    | SEEK String COMMA Exp {
+        auto ast = std::make_unique<StmtNodeSeek>();
+        ast->filename = std::unique_ptr<ASTBase>($2);
+        ast->pos = std::unique_ptr<ASTBase>($4);
+        $$ = ast.release();
+    }
+    | GETRECORD String COMMA IDENTIFIER {
+        auto ast = std::make_unique<StmtNodeGetRecord>();
+        ast->filename = std::unique_ptr<ASTBase>($2);
+        ast->identifier = *std::unique_ptr<std::string>($4);
+        $$ = ast.release();
+    }
+    | PUTRECORD String COMMA IDENTIFIER {
+        auto ast = std::make_unique<StmtNodePutRecord>();
+        ast->filename = std::unique_ptr<ASTBase>($2);
+        ast->identifier = *std::unique_ptr<std::string>($4);
+        $$ = ast.release();
+    }
     ;
 
 OptionalElse
@@ -702,6 +752,21 @@ OptStream
     }
     ;
 
+FileMode
+    : READ {
+        $$ = new std::string(FILE_OP_READ);
+    }
+    | WRITE {
+        $$ = new std::string(FILE_OP_WRITE);
+    }
+    | APPEND {
+        $$ = new std::string(FILE_OP_APPEND);
+    }
+    | RANDOM {
+        $$ = new std::string(FILE_OP_RANDOM);
+    }
+;
+
 LVal
     : IDENTIFIER OptionalMember {
         auto ast = std::make_unique<LValNodeId>();
@@ -759,6 +824,11 @@ PrimaryExp
         $$ = ast.release();
     }
     | FuncCall {
+        auto ast = std::make_unique<PrimaryExpNode>();
+        ast->expr = std::unique_ptr<ASTBase>($1);
+        $$ = ast.release();
+    }
+    | EOFExp {
         auto ast = std::make_unique<PrimaryExpNode>();
         ast->expr = std::unique_ptr<ASTBase>($1);
         $$ = ast.release();
@@ -939,6 +1009,14 @@ LOrExp
         ast->op = OP_OR;
         ast->left = std::unique_ptr<ASTBase>($1);
         ast->right = std::unique_ptr<ASTBase>($3);
+        $$ = ast.release();
+    }
+    ;
+
+EOFExp
+    : END_OF_FILE LBRAC String RBRAC {
+        auto ast = std::make_unique<EOFExpNode>();
+        ast->filename = std::unique_ptr<ASTBase>($3);
         $$ = ast.release();
     }
     ;

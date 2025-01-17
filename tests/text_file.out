@@ -1,0 +1,31 @@
+CompUnit {
+  VarDecl { LineOfText, STRING }
+  StmtOpenFile { "FileA.txt", READ }
+  StmtOpenFile { "FileB.txt", WRITE }
+  StmtWhile { Exp { UnaryExpOp { UnaryOp { NOT }, EOF { "FileA.txt" } } }, 
+    Block {
+      StmtReadFile { "FileA.txt", LineOfText }
+      StmtIf { Exp { EqExpCompare { EQ, LVal { LineOfText }, "" } }, 
+        Block {
+          StmtWriteFile { "FileB.txt", Exp { " ----------------------------" } }
+        }, 
+        Block {
+          StmtWriteFile { "FileB.txt", Exp { LVal { LineOfText } } }
+        }
+      }
+    }
+  }
+  StmtCloseFile { "FileA.txt" }
+  StmtCloseFile { "FileB.txt" }
+}
+
+Symbol Table Changes:
+Entered a new scope (Scope Level 0).
+Inserted 'LineOfText' (VARIABLE) into Scope Level 0 (line 1).
+Entered a new scope (Scope Level 1).
+Entered a new scope (Scope Level 2).
+Exited scope (Scope Level 2).
+Entered a new scope (Scope Level 2).
+Exited scope (Scope Level 2).
+Exited scope (Scope Level 1).
+

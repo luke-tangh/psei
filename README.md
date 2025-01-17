@@ -39,8 +39,8 @@
   - [x] Defining and calling functions
   - [x] Passing parameters by value or by reference
 9. File handling
-  - [ ] Handling text files
-  - [ ] Handling random files
+  - [x] Handling text files
+  - [x] Handling random files
 10. Object-oriented Programming
   - [ ] Methods and Properties
   - [ ] Constructors and Inheritance

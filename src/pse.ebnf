@@ -9,7 +9,7 @@ Boolean       ::= "TRUE" | "FALSE";
 Date          ::= [0-9]{2}[-/.][0-9]{2}[-/.][0-9]{4};
 
 (* Constants & Variables *)
-Decl          ::= ConstDecl | VarDecl | UserDefTypeDecl;
+Decl          ::= ConstDecl | VarDecl;
 BType         ::= "INTEGER" | "REAL" | "CHAR" | "STRING" | "BOOLEAN" | "DATE";
 ConstDecl     ::= "CONSTANT" IDENTIFIER "=" Exp;
 VarDecl       ::= "DECLARE" IDENTIFIER ":" BType
@@ -35,7 +35,7 @@ ArgList       ::= Exp { "," Exp };
 
 (* Block & Statement *)
 Block         ::= { BlockItem };
-BlockItem     ::= Decl | Stmt;
+BlockItem     ::= Decl | Stmt | UserDefType;
 Stmt          ::= LVal "<-" Exp
                 | "IF" Exp "THEN" Block ["ELSE" Block] "ENDIF"
                 | "CASE" "OF" IDENTIFIER { ( Exp | Range ) ":" Block } [ "OTHERWISE" ":" Block ] "ENDCASE"
@@ -45,16 +45,20 @@ Stmt          ::= LVal "<-" Exp
                 | "RETURN" Exp
                 | "INPUT" IDENTIFIER
                 | "OUTPUT" Exp { "," ( Exp ) }
-                | UserDefType;
+                | "OPENFILE" String "FOR" ( "READ" | "WRITE" | "APPEND" | "RANDOM" )
+                | "READFILE" String "," IDENTIFIER
+                | "WRITEFILE" String "," Exp
+                | "CLOSEFILE" String
+                | "SEEK" String "," Exp
+                | "GETRECORD" String "," IDENTIFIER
+                | "PUTRECORD" String "," IDENTIFIER;
 
 (* Value *)
-LVal          ::= [^] IDENTIFIER [. IDENTIFIER]
-                | IDENTIFIER [. IDENTIFIER] [^]
-                | [^] IDENTIFIER "[" Exp { "," Exp } "]" [. IDENTIFIER]
-                | IDENTIFIER "[" Exp { "," Exp } "]" [. IDENTIFIER] [^];
+LVal          ::= IDENTIFIER [ . IDENTIFIER ]
+                | IDENTIFIER "[" Exp { "," Exp } "]" [ . IDENTIFIER ];
 
 (* Expression *)
-PrimaryExp    ::= "(" Exp ")" | Literial | LVal | FuncCall;
+PrimaryExp    ::= "(" Exp ")" | Literial | LVal | FuncCall | EOFExp;
 UnaryExp      ::= PrimaryExp | UnaryOp UnaryExp;
 UnaryOp       ::= "+" | "-" | "NOT";
 MulExp        ::= UnaryExp | MulExp ("*" | "/" | "DIV" | "MOD") UnaryExp;
@@ -63,3 +67,4 @@ RelExp        ::= AddExp | RelExp ("<" | ">" | "<=" | ">=") AddExp;
 EqExp         ::= RelExp | EqExp ("=" | "<>") RelExp;
 LAndExp       ::= EqExp | LAndExp "AND" EqExp;
 LOrExp        ::= LAndExp | LOrExp "OR" LAndExp;
+EOFExp        ::= "EOF" "(" String ")";

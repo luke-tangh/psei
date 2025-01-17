@@ -31,6 +31,11 @@
 #define PASS_BY_REF     "BY_REF"
 #define PASS_BY_VAL     "BY_VAL"
 
+#define FILE_OP_READ    "READ"
+#define FILE_OP_WRITE   "WRITE"
+#define FILE_OP_APPEND  "APPEND"
+#define FILE_OP_RANDOM  "RANDOM"
+
 #define OP_ADD          "ADD"
 #define OP_SUB          "SUB"
 #define OP_NOT          "NOT"
@@ -357,6 +362,54 @@ public:
     void dump() const override;
 };
 
+class StmtNodeOpenFile : public ASTBase {
+public:
+    std::unique_ptr<ASTBase> filename;
+    std::string mode;
+    void dump() const override;
+};
+
+class StmtNodeReadFile : public ASTBase {
+public:
+    std::unique_ptr<ASTBase> filename;
+    std::string identifier;
+    void dump() const override;
+};
+
+class StmtNodeWriteFile : public ASTBase {
+public:
+    std::unique_ptr<ASTBase> filename;
+    std::unique_ptr<ASTBase> expr;
+    void dump() const override;
+};
+
+class StmtNodeCloseFile : public ASTBase {
+public:
+    std::unique_ptr<ASTBase> filename;
+    void dump() const override;
+};
+
+class StmtNodeSeek : public ASTBase {
+public:
+    std::unique_ptr<ASTBase> filename;
+    std::unique_ptr<ASTBase> pos;
+    void dump() const override;
+};
+
+class StmtNodeGetRecord : public ASTBase {
+public:
+    std::unique_ptr<ASTBase> filename;
+    std::string identifier;
+    void dump() const override;
+};
+
+class StmtNodePutRecord : public ASTBase {
+public:
+    std::unique_ptr<ASTBase> filename;
+    std::string identifier;
+    void dump() const override;
+};
+
 class LValNodeId : public ASTBase {
 public:
     std::string identifier;
@@ -462,6 +515,12 @@ public:
 
 class LOrExpNodeOp : public BinaryOpBase {
 public:
+    void dump() const override;
+};
+
+class EOFExpNode : public ASTBase {
+public:
+    std::unique_ptr<ASTBase> filename;
     void dump() const override;
 };
 

@@ -341,6 +341,56 @@ void StmtNodeOutput::dump() const {
     std::cout << "}";
 }
 
+void StmtNodeOpenFile::dump() const {
+    std::cout << IndentHelper::current_indent << "StmtOpenFile { ";
+    filename->dump();
+    std::cout << ", " << mode;
+    std::cout << " }";
+}
+
+void StmtNodeReadFile::dump() const {
+    std::cout << IndentHelper::current_indent << "StmtReadFile { ";
+    filename->dump();
+    std::cout << ", " << identifier;
+    std::cout << " }";
+}
+
+void StmtNodeWriteFile::dump() const {
+    std::cout << IndentHelper::current_indent << "StmtWriteFile { ";
+    filename->dump();
+    std::cout << ", ";
+    expr->dump();
+    std::cout << " }";
+}
+
+void StmtNodeCloseFile::dump() const {
+    std::cout << IndentHelper::current_indent << "StmtCloseFile { ";
+    filename->dump();
+    std::cout << " }";
+}
+
+void StmtNodeSeek::dump() const {
+    std::cout << IndentHelper::current_indent << "StmtSeek { ";
+    filename->dump();
+    std::cout << ", ";
+    pos->dump();
+    std::cout << " }";
+}
+
+void StmtNodeGetRecord::dump() const {
+    std::cout << IndentHelper::current_indent << "StmtGetRecord { ";
+    filename->dump();
+    std::cout << ", " << identifier;
+    std::cout << " }";
+}
+
+void StmtNodePutRecord::dump() const {
+    std::cout << IndentHelper::current_indent << "StmtPutRecord { ";
+    filename->dump();
+    std::cout << ", " << identifier;
+    std::cout << " }";
+}
+
 void LValNodeId::dump() const {
     std::cout << "LVal { ";
     std::cout << identifier;
@@ -358,7 +408,7 @@ void LValNodeArray::dump() const {
         std::cout << " ";
     }
     if (!member.empty()) {
-        std::cout << "." << member;
+        std::cout << "." << member << " ";
     }
     std::cout << "}";
 }
@@ -454,5 +504,11 @@ void LOrExpNodeOp::dump() const {
     left->dump();
     std::cout << ", ";
     right->dump();
+    std::cout << " }";
+}
+
+void EOFExpNode::dump() const {
+    std::cout << "EOF { ";
+    filename->dump();
     std::cout << " }";
 }
