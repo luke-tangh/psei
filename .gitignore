@@ -1,6 +1,30 @@
-.pytest_cache
-.venv
-psei.egg-info
-__pycache__
+# Python bytecode / caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Test / tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments / local env
+.venv/
+venv/
+env/
+.env
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# OS / editor noise
+.DS_Store
+.idea/
+.vscode/
+
 export.sh
 export.txt

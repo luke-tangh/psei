@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import random
 import re
 from typing import Any
 
@@ -53,6 +52,19 @@ class Interpreter:
             self.execute(stmt)
 
     def execute(self, stmt: Any):
+        try:
+            return self._execute(stmt)
+
+        except PseudoRuntimeError as err:
+            if err.line is None:
+                span = getattr(stmt, "span", None)
+
+                if span is not None:
+                    raise err.with_location(span.line, span.col) from None
+
+            raise
+
+    def _execute(self, stmt: Any):
         if isinstance(stmt, DeclareStmt):
             self.env.define(stmt.name, stmt.type_spec)
             return
@@ -69,7 +81,7 @@ class Interpreter:
 
         if isinstance(stmt, InputStmt):
             type_spec = self.target_type(stmt.target)
-            text = input()
+            text = self.runtime.input_provider()
             value = parse_input_value(text, type_spec)
             self.assign_target(stmt.target, value)
             return
@@ -80,7 +92,7 @@ class Interpreter:
                 for expr in stmt.exprs
             ]
 
-            print("".join(values))
+            self.runtime.output_writer("".join(values))
             return
 
         if isinstance(stmt, IfStmt):
@@ -422,7 +434,7 @@ class Interpreter:
             if x <= 0:
                 raise PseudoRuntimeError("RAND argument must be positive")
 
-            return random.random() * x
+            return self.runtime.rng.random() * x
 
         raise PseudoRuntimeError(f"Unknown function {name!r}")
 

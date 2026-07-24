@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import copy
 import itertools
+import random
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -174,9 +176,19 @@ class Environment:
 
 
 class Runtime:
-    def __init__(self, *, strict: bool = False):
+    def __init__(
+        self,
+        *,
+        strict: bool = False,
+        input_provider: Callable[[], str] | None = None,
+        output_writer: Callable[[str], Any] | None = None,
+        rng: random.Random | None = None,
+    ):
         self.strict = strict
         self.env = Environment(strict=strict)
+        self.input_provider = input_provider if input_provider is not None else input
+        self.output_writer = output_writer if output_writer is not None else print
+        self.rng = rng if rng is not None else random.Random()
 
 
 def type_to_str(type_spec: Any) -> str:

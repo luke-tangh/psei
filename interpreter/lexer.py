@@ -273,12 +273,21 @@ class Lexer:
     def is_at_end(self) -> bool:
         return self.current >= len(self.source)
 
-    @staticmethod
-    def is_identifier_start(c: str) -> bool:
+    def is_identifier_start(self, c: str) -> bool:
+        if self.strict:
+            return ("A" <= c <= "Z") or ("a" <= c <= "z")
+
         return c.isalpha()
 
-    @staticmethod
-    def is_identifier_part(c: str) -> bool:
+    def is_identifier_part(self, c: str) -> bool:
+        if self.strict:
+            return (
+                ("A" <= c <= "Z")
+                or ("a" <= c <= "z")
+                or ("0" <= c <= "9")
+                or c == "_"
+            )
+
         return c.isalpha() or c.isdigit() or c == "_"
 
     def error(self, message: str):

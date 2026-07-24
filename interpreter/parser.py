@@ -18,6 +18,7 @@ from .ast_nodes import (
     OutputStmt,
     Program,
     RepeatStmt,
+    SourceSpan,
     UnaryExpr,
     VariableExpr,
     VarTarget,
@@ -116,15 +117,17 @@ class Parser:
         return statements
 
     def parse_statement(self):
+        start_tok = self.peek()
+
         if self.match(T.DECLARE):
-            return self.parse_declare()
+            return self.with_span(self.parse_declare(), start_tok)
 
         if self.match(T.CONSTANT):
-            return self.parse_constant()
+            return self.with_span(self.parse_constant(), start_tok)
 
         if self.match(T.INPUT):
             target = self.parse_lvalue()
-            return InputStmt(target)
+            return self.with_span(InputStmt(target), start_tok)
 
         if self.match(T.OUTPUT):
             exprs = []
@@ -139,7 +142,7 @@ class Parser:
                 while self.match(T.COMMA):
                     exprs.append(self.parse_expression())
 
-            return OutputStmt(exprs)
+            return self.with_span(OutputStmt(exprs), start_tok)
 
         if self.match(T.IF):
             condition = self.parse_expression()
@@ -152,22 +155,22 @@ class Parser:
                 else_body = self.parse_block({T.ENDIF})
 
             self.consume(T.ENDIF, "Expected ENDIF")
-            return IfStmt(condition, then_body, else_body)
+            return self.with_span(IfStmt(condition, then_body, else_body), start_tok)
 
         if self.match(T.CASE):
-            return self.parse_case()
+            return self.with_span(self.parse_case(), start_tok)
 
         if self.match(T.WHILE):
             condition = self.parse_expression()
             body = self.parse_block({T.ENDWHILE})
             self.consume(T.ENDWHILE, "Expected ENDWHILE")
-            return WhileStmt(condition, body)
+            return self.with_span(WhileStmt(condition, body), start_tok)
 
         if self.match(T.REPEAT):
             body = self.parse_block({T.UNTIL})
             self.consume(T.UNTIL, "Expected UNTIL")
             condition = self.parse_expression()
-            return RepeatStmt(body, condition)
+            return self.with_span(RepeatStmt(body, condition), start_tok)
 
         if self.match(T.FOR):
             name_tok = self.consume(T.IDENT, "Expected loop variable after FOR")
@@ -187,9 +190,19 @@ class Parser:
             self.consume(T.NEXT, "Expected NEXT")
 
             if self.check(T.IDENT):
-                self.advance()
+                next_tok = self.advance()
 
-            return ForStmt(name_tok.lexeme, start, end, step, body)
+                if next_tok.lexeme.lower() != name_tok.lexeme.lower():
+                    raise self.err(
+                        next_tok,
+                        f"NEXT variable {next_tok.lexeme!r} does not match "
+                        f"FOR variable {name_tok.lexeme!r}",
+                    )
+
+            return self.with_span(
+                ForStmt(name_tok.lexeme, start, end, step, body),
+                start_tok,
+            )
 
         if self.match(T.CALL):
             raise self.err(
@@ -215,7 +228,7 @@ class Parser:
 
             if self.match(T.ASSIGN):
                 expr = self.parse_expression()
-                return AssignStmt(target, expr)
+                return self.with_span(AssignStmt(target, expr), start_tok)
 
             self.current = save
 
@@ -521,6 +534,13 @@ class Parser:
 
     def previous(self) -> Token:
         return self.tokens[self.current - 1]
+
+    @staticmethod
+    def with_span(stmt, tok: Token):
+        if hasattr(stmt, "span"):
+            stmt.span = SourceSpan(tok.line, tok.col)
+
+        return stmt
 
     @staticmethod
     def err(tok: Token, message: str) -> ParseError:
