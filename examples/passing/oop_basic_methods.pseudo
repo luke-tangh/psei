@@ -1,0 +1,23 @@
+CLASS Player
+   PRIVATE Attempts : INTEGER
+
+   Attempts ← 3
+
+   PUBLIC PROCEDURE SetAttempts(Number : INTEGER)
+      Attempts ← Number
+   ENDPROCEDURE
+
+   PRIVATE FUNCTION GetAttempts() RETURNS INTEGER
+      RETURN Attempts
+   ENDFUNCTION
+ENDCLASS
+
+DECLARE P : Player
+
+P ← NEW Player()
+
+OUTPUT P.GetAttempts()
+
+P.SetAttempts(5)
+
+OUTPUT P.GetAttempts()

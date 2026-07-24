@@ -6,7 +6,7 @@ import pickle
 import random
 from collections.abc import Callable
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field as dc_field
 from pathlib import Path
 from typing import Any
 
@@ -115,6 +115,98 @@ class RecordValue:
     def field_type(self, field_name: str) -> Any:
         return self.type_spec.get_field(field_name).type_spec
 
+
+
+@dataclass
+class ClassFieldSpec:
+    original_name: str
+    type_spec: Any
+    access: str = T.PUBLIC
+
+
+@dataclass
+class ClassType:
+    name: str
+    parent_name: str | None = None
+    parent: ClassType | None = None
+    fields: dict[str, ClassFieldSpec] = dc_field(default_factory=dict)
+    methods: dict[str, Any] = dc_field(default_factory=dict)
+    initializers: list[Any] = dc_field(default_factory=list)
+    completed: bool = False
+
+    def all_fields(self) -> dict[str, ClassFieldSpec]:
+        fields = {}
+
+        if self.parent is not None:
+            fields.update(self.parent.all_fields())
+
+        fields.update(self.fields)
+        return fields
+
+    def get_field(self, field_name: str) -> ClassFieldSpec:
+        key = norm_identifier(field_name)
+        fields = self.all_fields()
+
+        if key not in fields:
+            raise PseudoRuntimeError(
+                f"Class {self.name!r} has no property {field_name!r}"
+            )
+
+        return fields[key]
+
+    def find_method(self, method_name: str) -> tuple[Any | None, ClassType | None]:
+        key = norm_identifier(method_name)
+
+        if key in self.methods:
+            return self.methods[key], self
+
+        if self.parent is not None:
+            return self.parent.find_method(method_name)
+
+        return None, None
+
+    def has_method(self, method_name: str) -> bool:
+        method, _owner = self.find_method(method_name)
+        return method is not None
+
+
+@dataclass
+class ObjectValue:
+    type_spec: ClassType
+    fields: dict[str, Any]
+
+    @classmethod
+    def create(cls, type_spec: ClassType) -> ObjectValue:
+        if not type_spec.completed:
+            raise PseudoRuntimeError(
+                f"Class {type_spec.name!r} is not completely defined"
+            )
+
+        fields = {}
+
+        for key, spec in type_spec.all_fields().items():
+            fields[key] = copy.deepcopy(default_value(spec.type_spec))
+
+        return cls(type_spec, fields)
+
+    def get(self, field_name: str) -> Any:
+        key = norm_identifier(field_name)
+        self.type_spec.get_field(field_name)
+        return self.fields[key]
+
+    def set(self, field_name: str, value: Any):
+        key = norm_identifier(field_name)
+        spec = self.type_spec.get_field(field_name)
+        self.fields[key] = coerce_value(value, spec.type_spec)
+
+    def field_type(self, field_name: str) -> Any:
+        return self.type_spec.get_field(field_name).type_spec
+
+
+@dataclass
+class SuperProxy:
+    object_value: ObjectValue
+    start_class: ClassType
 
 @dataclass
 class ArrayValue:
@@ -584,6 +676,7 @@ class Runtime:
 
         self.types: dict[str, Any] = {}
         self.enum_values: dict[str, EnumValue] = {}
+        self.classes: dict[str, ClassType] = {}
 
         self.procedures: dict[str, Any] = {}
         self.functions: dict[str, Any] = {}
@@ -725,6 +818,100 @@ class Runtime:
         record_type.fields = field_specs
         record_type.completed = True
 
+    def reserve_class_type(self, name: str, parent_name: str | None):
+        key = norm_identifier(name)
+
+        if key in self.types or key in self.classes:
+            raise PseudoRuntimeError(f"CLASS {name!r} is already defined")
+
+        class_type = ClassType(name=name, parent_name=parent_name)
+        self.classes[key] = class_type
+        self.types[key] = class_type
+
+    def register_class_type(self, decl: Any):
+        key = norm_identifier(decl.name)
+
+        if key not in self.classes:
+            self.reserve_class_type(decl.name, decl.parent_name)
+
+        class_type = self.classes[key]
+
+        if class_type.completed:
+            raise PseudoRuntimeError(f"CLASS {decl.name!r} is already defined")
+
+        if class_type.parent_name is not None:
+            parent_key = norm_identifier(class_type.parent_name)
+
+            if parent_key not in self.classes:
+                raise PseudoRuntimeError(
+                    f"Unknown superclass {class_type.parent_name!r}"
+                )
+
+            if parent_key == key:
+                raise PseudoRuntimeError(
+                    f"CLASS {decl.name!r} cannot inherit from itself"
+                )
+
+            class_type.parent = self.classes[parent_key]
+
+        fields: dict[str, ClassFieldSpec] = {}
+        methods: dict[str, Any] = {}
+
+        inherited_fields = (
+            class_type.parent.all_fields()
+            if class_type.parent is not None
+            else {}
+        )
+
+        for member in decl.members:
+            if member.__class__.__name__ == "ClassFieldDecl":
+                field_key = norm_identifier(member.name)
+
+                if field_key in fields:
+                    raise PseudoRuntimeError(
+                        f"Duplicate property {member.name!r} in CLASS {decl.name!r}"
+                    )
+
+                if field_key in inherited_fields:
+                    raise PseudoRuntimeError(
+                        f"Property {member.name!r} in CLASS {decl.name!r} "
+                        "duplicates an inherited property"
+                    )
+
+                fields[field_key] = ClassFieldSpec(
+                    original_name=member.name,
+                    type_spec=self.resolve_type_spec(member.type_spec),
+                    access=member.access,
+                )
+
+            else:
+                method_key = norm_identifier(member.name)
+
+                if method_key in methods:
+                    raise PseudoRuntimeError(
+                        f"Duplicate method {member.name!r} in CLASS {decl.name!r}"
+                    )
+
+                methods[method_key] = member
+
+        class_type.fields = fields
+        class_type.methods = methods
+        class_type.initializers = decl.initializers
+        class_type.completed = True
+
+    def get_class(self, name: str) -> ClassType:
+        key = norm_identifier(name)
+
+        if key not in self.classes:
+            raise PseudoRuntimeError(f"Unknown CLASS {name!r}")
+
+        class_type = self.classes[key]
+
+        if not class_type.completed:
+            raise PseudoRuntimeError(f"CLASS {name!r} is not completely defined")
+
+        return class_type
+
     def has_enum_value(self, name: str) -> bool:
         return norm_identifier(name) in self.enum_values
 
@@ -809,6 +996,9 @@ def type_to_str(type_spec: Any) -> str:
     if isinstance(type_spec, RecordType):
         return type_spec.name
 
+    if isinstance(type_spec, ClassType):
+        return type_spec.name
+
     return str(type_spec).upper()
 
 
@@ -825,17 +1015,32 @@ def same_type(a: Any, b: Any) -> bool:
     if isinstance(a, RecordType) and isinstance(b, RecordType):
         return norm_identifier(a.name) == norm_identifier(b.name)
 
+    if isinstance(a, ClassType) and isinstance(b, ClassType):
+        return norm_identifier(a.name) == norm_identifier(b.name)
+
     if isinstance(a, UserTypeRef) and isinstance(b, UserTypeRef):
         return norm_identifier(a.name) == norm_identifier(b.name)
 
-    if isinstance(a, UserTypeRef) and isinstance(b, (EnumType, RecordType)):
+    if isinstance(a, UserTypeRef) and isinstance(b, (EnumType, RecordType, ClassType)):
         return norm_identifier(a.name) == norm_identifier(b.name)
 
-    if isinstance(b, UserTypeRef) and isinstance(a, (EnumType, RecordType)):
+    if isinstance(b, UserTypeRef) and isinstance(a, (EnumType, RecordType, ClassType)):
         return norm_identifier(a.name) == norm_identifier(b.name)
 
     if isinstance(a, str) and isinstance(b, str):
         return a.upper() == b.upper()
+
+    return False
+
+
+def is_class_assignable(source: ClassType, target: ClassType) -> bool:
+    current: ClassType | None = source
+
+    while current is not None:
+        if same_type(current, target):
+            return True
+
+        current = current.parent
 
     return False
 
@@ -860,6 +1065,9 @@ def default_value(type_spec: Any) -> Any:
 
     if isinstance(type_spec, RecordType):
         return RecordValue.create(type_spec)
+
+    if isinstance(type_spec, ClassType):
+        return ObjectValue.create(type_spec)
 
     t = type_to_str(type_spec)
 
@@ -892,6 +1100,9 @@ def infer_type(value: Any) -> Any:
         return value.type_spec
 
     if isinstance(value, RecordValue):
+        return value.type_spec
+
+    if isinstance(value, ObjectValue):
         return value.type_spec
 
     if type(value) is bool:
@@ -966,6 +1177,21 @@ def coerce_value(value: Any, type_spec: Any) -> Any:
 
         return RecordValue(type_spec, copy.deepcopy(value.fields))
 
+    if isinstance(type_spec, ClassType):
+        if not isinstance(value, ObjectValue):
+            raise PseudoRuntimeError(
+                f"Expected {type_to_str(type_spec)}, "
+                f"got {runtime_type_name(value)}"
+            )
+
+        if not is_class_assignable(value.type_spec, type_spec):
+            raise PseudoRuntimeError(
+                f"Cannot assign {type_to_str(value.type_spec)} "
+                f"to {type_to_str(type_spec)}"
+            )
+
+        return value
+
     t = type_to_str(type_spec)
 
     if t == T.INTEGER:
@@ -1036,6 +1262,9 @@ def debug_value(value: Any) -> str:
     if isinstance(value, RecordValue):
         return f"<{type_to_str(value.type_spec)}>"
 
+    if isinstance(value, ObjectValue):
+        return f"<{type_to_str(value.type_spec)} object>"
+
     if isinstance(value, Char):
         if value == "\0":
             return "'\\0'"
@@ -1060,6 +1289,9 @@ def output_value(value: Any) -> str:
 
     if isinstance(value, RecordValue):
         return f"<{type_to_str(value.type_spec)}>"
+
+    if isinstance(value, ObjectValue):
+        return f"<{type_to_str(value.type_spec)} object>"
 
     if isinstance(value, bool):
         return "TRUE" if value else "FALSE"

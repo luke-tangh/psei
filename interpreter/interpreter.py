@@ -12,6 +12,7 @@ from .ast_nodes import (
     CallExpr,
     CallStmt,
     CaseStmt,
+    ClassDecl,
     CloseFileStmt,
     ConstantStmt,
     DeclareStmt,
@@ -24,6 +25,9 @@ from .ast_nodes import (
     IndexTarget,
     InputStmt,
     LiteralExpr,
+    MethodCallExpr,
+    MethodCallStmt,
+    NewExpr,
     OpenFileStmt,
     OutputStmt,
     ProcedureDecl,
@@ -33,6 +37,7 @@ from .ast_nodes import (
     RepeatStmt,
     ReturnStmt,
     SeekStmt,
+    SuperExpr,
     TypeDeclEnum,
     TypeDeclRecord,
     UnaryExpr,
@@ -45,8 +50,10 @@ from .errors import PseudoRuntimeError
 from .runtime import (
     ArrayValue,
     EnumValue,
+    ObjectValue,
     RecordValue,
     Reference,
+    SuperProxy,
     Runtime,
     coerce_value,
     output_value,
@@ -68,6 +75,7 @@ class ReturnSignal(Exception):
 class Interpreter:
     def __init__(self, runtime: Runtime):
         self.runtime = runtime
+        self.method_context: list[tuple[ObjectValue, Any]] = []
 
     @property
     def env(self):
@@ -79,11 +87,19 @@ class Interpreter:
                 self.runtime.reserve_record_type(stmt.name)
 
         for stmt in program.statements:
+            if isinstance(stmt, ClassDecl):
+                self.runtime.reserve_class_type(stmt.name, stmt.parent_name)
+
+        for stmt in program.statements:
             if isinstance(stmt, TypeDeclEnum):
                 self.execute(stmt)
 
         for stmt in program.statements:
             if isinstance(stmt, TypeDeclRecord):
+                self.execute(stmt)
+
+        for stmt in program.statements:
+            if isinstance(stmt, ClassDecl):
                 self.execute(stmt)
 
         for stmt in program.statements:
@@ -93,7 +109,7 @@ class Interpreter:
         for stmt in program.statements:
             if isinstance(
                 stmt,
-                (TypeDeclEnum, TypeDeclRecord, ProcedureDecl, FunctionDecl),
+                (TypeDeclEnum, TypeDeclRecord, ClassDecl, ProcedureDecl, FunctionDecl),
             ):
                 continue
 
@@ -132,6 +148,10 @@ class Interpreter:
 
         if isinstance(stmt, TypeDeclRecord):
             self.runtime.register_record_type(stmt.name, stmt.fields)
+            return
+
+        if isinstance(stmt, ClassDecl):
+            self.runtime.register_class_type(stmt)
             return
 
         if isinstance(stmt, DeclareStmt):
@@ -257,6 +277,10 @@ class Interpreter:
             self.call_procedure(stmt.name, stmt.args)
             return
 
+        if isinstance(stmt, MethodCallStmt):
+            self.call_method_expression(stmt.call, expression_context=False)
+            return
+
         if isinstance(stmt, ReturnStmt):
             value = self.eval(stmt.expr)
             raise ReturnSignal(value, stmt.span)
@@ -265,6 +289,194 @@ class Interpreter:
 
     def eval_file_identifier(self, expr: Any) -> str:
         return self.require_string(self.eval(expr))
+
+    def create_object(self, class_name: str, arg_exprs: list[Any]) -> ObjectValue:
+        class_type = self.runtime.get_class(class_name)
+        obj = ObjectValue.create(class_type)
+
+        self.run_class_initializers(obj, class_type)
+
+        constructor, _owner = class_type.find_method("NEW")
+
+        if constructor is None:
+            if arg_exprs:
+                raise PseudoRuntimeError(
+                    f"CLASS {class_name!r} has no constructor accepting arguments"
+                )
+
+            return obj
+
+        value, kind = self.call_method(
+            obj,
+            "NEW",
+            arg_exprs,
+            start_class=class_type,
+            context=f"CONSTRUCTOR {class_name}.NEW",
+        )
+
+        if kind != T.PROCEDURE:
+            raise PseudoRuntimeError("Constructor NEW must be a PROCEDURE")
+
+        return obj
+
+    def run_class_initializers(self, obj: ObjectValue, class_type: Any):
+        if class_type.parent is not None:
+            self.run_class_initializers(obj, class_type.parent)
+
+        if not class_type.initializers:
+            return
+
+        with self.runtime.scope(f"CLASS {class_type.name} initializers"):
+            self.bind_object_fields(obj)
+
+            self.method_context.append((obj, class_type))
+
+            try:
+                self.execute_block(class_type.initializers)
+
+            except ReturnSignal as signal:
+                err = PseudoRuntimeError(
+                    "RETURN cannot be used in CLASS property initializers"
+                )
+
+                if signal.span is not None:
+                    raise err.with_location(signal.span.line, signal.span.col) from None
+
+                raise err from None
+
+            finally:
+                self.method_context.pop()
+
+    def bind_object_fields(self, obj: ObjectValue):
+        for _key, spec in obj.type_spec.all_fields().items():
+            if self.env.exists_local(spec.original_name):
+                continue
+
+            self.env.define_reference(
+                spec.original_name,
+                spec.type_spec,
+                Reference(
+                    type_spec=spec.type_spec,
+                    getter=lambda obj=obj, name=spec.original_name: obj.get(name),
+                    setter=lambda value, obj=obj, name=spec.original_name: obj.set(
+                        name,
+                        value,
+                    ),
+                    description=f"{obj.type_spec.name}.{spec.original_name}",
+                ),
+            )
+
+    def eval_super(self) -> SuperProxy:
+        if not self.method_context:
+            raise PseudoRuntimeError("SUPER can only be used inside a method")
+
+        obj, current_class = self.method_context[-1]
+
+        if current_class.parent is None:
+            raise PseudoRuntimeError(
+                f"CLASS {current_class.name!r} has no superclass"
+            )
+
+        return SuperProxy(obj, current_class.parent)
+
+    def call_method_expression(
+        self,
+        expr: Any,
+        *,
+        expression_context: bool,
+    ) -> Any:
+        target = self.eval(expr.object_expr)
+
+        if isinstance(target, SuperProxy):
+            obj = target.object_value
+            start_class = target.start_class
+
+        elif isinstance(target, ObjectValue):
+            obj = target
+            start_class = obj.type_spec
+
+        else:
+            raise PseudoRuntimeError(
+                f"Method call target must be an object, got {runtime_type_name(target)}"
+            )
+
+        value, kind = self.call_method(
+            obj,
+            expr.method_name,
+            expr.args,
+            start_class=start_class,
+            context=f"METHOD {start_class.name}.{expr.method_name}",
+        )
+
+        if kind == T.PROCEDURE and expression_context:
+            raise PseudoRuntimeError(
+                f"PROCEDURE method {expr.method_name!r} cannot be used as a FUNCTION"
+            )
+
+        return value
+
+    def call_method(
+        self,
+        obj: ObjectValue,
+        method_name: str,
+        arg_exprs: list[Any],
+        *,
+        start_class: Any,
+        context: str,
+    ) -> tuple[Any, str]:
+        method, owner_class = start_class.find_method(method_name)
+
+        if method is None or owner_class is None:
+            raise PseudoRuntimeError(
+                f"CLASS {start_class.name!r} has no method {method_name!r}"
+            )
+
+        prepared = self.prepare_arguments(
+            method.params,
+            arg_exprs,
+            context,
+        )
+
+        return_type = (
+            self.runtime.resolve_type_spec(method.return_type)
+            if method.return_type is not None
+            else None
+        )
+
+        with self.runtime.scope(context):
+            self.bind_prepared_arguments(prepared)
+            self.bind_object_fields(obj)
+
+            self.method_context.append((obj, owner_class))
+
+            try:
+                self.execute_block(method.body)
+
+            except ReturnSignal as signal:
+                if method.kind != T.FUNCTION:
+                    err = PseudoRuntimeError(
+                        "RETURN cannot be used in a PROCEDURE method"
+                    )
+
+                    if signal.span is not None:
+                        raise err.with_location(
+                            signal.span.line,
+                            signal.span.col,
+                        ) from None
+
+                    raise err from None
+
+                return coerce_value(signal.value, return_type), method.kind
+
+            finally:
+                self.method_context.pop()
+
+        if method.kind == T.FUNCTION:
+            raise PseudoRuntimeError(
+                f"FUNCTION method {method.name!r} did not RETURN a value"
+            )
+
+        return None, method.kind
 
     def execute_case(self, stmt: CaseStmt):
         selector = self.eval(stmt.selector)
@@ -441,21 +653,36 @@ class Interpreter:
             )
 
         if isinstance(expr, FieldAccessExpr):
-            record = self.eval(expr.record_expr)
+            holder = self.eval(expr.record_expr)
 
-            if not isinstance(record, RecordValue):
-                raise PseudoRuntimeError("BYREF field argument is not a record")
+            if isinstance(holder, RecordValue):
+                field_type = holder.field_type(expr.field_name)
 
-            field_type = record.field_type(expr.field_name)
+                return Reference(
+                    type_spec=field_type,
+                    getter=lambda record=holder, name=expr.field_name: record.get(name),
+                    setter=lambda value, record=holder, name=expr.field_name: record.set(
+                        name,
+                        value,
+                    ),
+                    description="record field",
+                )
 
-            return Reference(
-                type_spec=field_type,
-                getter=lambda record=record, name=expr.field_name: record.get(name),
-                setter=lambda value, record=record, name=expr.field_name: record.set(
-                    name,
-                    value,
-                ),
-                description="record field",
+            if isinstance(holder, ObjectValue):
+                field_type = holder.field_type(expr.field_name)
+
+                return Reference(
+                    type_spec=field_type,
+                    getter=lambda obj=holder, name=expr.field_name: obj.get(name),
+                    setter=lambda value, obj=holder, name=expr.field_name: obj.set(
+                        name,
+                        value,
+                    ),
+                    description="object property",
+                )
+
+            raise PseudoRuntimeError(
+                "BYREF field argument is not a record or object"
             )
 
         raise PseudoRuntimeError("BYREF argument must be a variable, ARRAY element or record field")
@@ -494,13 +721,19 @@ class Interpreter:
             return
 
         if isinstance(target, FieldTarget):
-            record = self.eval(target.record_expr)
+            holder = self.eval(target.record_expr)
 
-            if not isinstance(record, RecordValue):
-                raise PseudoRuntimeError("Field assignment target is not a record")
+            if isinstance(holder, RecordValue):
+                holder.set(target.field_name, value)
+                return
 
-            record.set(target.field_name, value)
-            return
+            if isinstance(holder, ObjectValue):
+                holder.set(target.field_name, value)
+                return
+
+            raise PseudoRuntimeError(
+                "Field assignment target is not a record or object"
+            )
 
         raise PseudoRuntimeError(f"Invalid assignment target {target!r}")
 
@@ -531,18 +764,27 @@ class Interpreter:
             return arr.type_spec.element_type
 
         if isinstance(target, FieldTarget):
-            record = self.eval(target.record_expr)
+            holder = self.eval(target.record_expr)
 
-            if not isinstance(record, RecordValue):
-                raise PseudoRuntimeError("Field target is not a record")
+            if isinstance(holder, RecordValue):
+                return holder.field_type(target.field_name)
 
-            return record.field_type(target.field_name)
+            if isinstance(holder, ObjectValue):
+                return holder.field_type(target.field_name)
+
+            raise PseudoRuntimeError("Field target is not a record or object")
 
         raise PseudoRuntimeError(f"Invalid target {target!r}")
 
     def eval(self, expr: Any) -> Any:
         if isinstance(expr, LiteralExpr):
             return expr.value
+
+        if isinstance(expr, NewExpr):
+            return self.create_object(expr.class_name, expr.args)
+
+        if isinstance(expr, SuperExpr):
+            return self.eval_super()
 
         if isinstance(expr, VariableExpr):
             if self.env.exists(expr.name):
@@ -567,12 +809,15 @@ class Interpreter:
             return arr.get(indices)
 
         if isinstance(expr, FieldAccessExpr):
-            record = self.eval(expr.record_expr)
+            holder = self.eval(expr.record_expr)
 
-            if not isinstance(record, RecordValue):
-                raise PseudoRuntimeError("Field access target is not a record")
+            if isinstance(holder, RecordValue):
+                return holder.get(expr.field_name)
 
-            return record.get(expr.field_name)
+            if isinstance(holder, ObjectValue):
+                return holder.get(expr.field_name)
+
+            raise PseudoRuntimeError("Field access target is not a record or object")
 
         if isinstance(expr, UnaryExpr):
             right = self.eval(expr.right)
@@ -606,6 +851,9 @@ class Interpreter:
             left = self.eval(expr.left)
             right = self.eval(expr.right)
             return self.eval_binary(left, expr.op, right)
+
+        if isinstance(expr, MethodCallExpr):
+            return self.call_method_expression(expr, expression_context=True)
 
         if isinstance(expr, CallExpr):
             if self.runtime.has_function(expr.name):

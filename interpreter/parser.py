@@ -10,6 +10,8 @@ from .ast_nodes import (
     CallStmt,
     CaseClause,
     CaseStmt,
+    ClassDecl,
+    ClassFieldDecl,
     CloseFileStmt,
     ConstantStmt,
     DeclareStmt,
@@ -22,6 +24,10 @@ from .ast_nodes import (
     IndexTarget,
     InputStmt,
     LiteralExpr,
+    MethodCallExpr,
+    MethodCallStmt,
+    MethodDecl,
+    NewExpr,
     OpenFileStmt,
     OutputStmt,
     Param,
@@ -34,6 +40,7 @@ from .ast_nodes import (
     ReturnStmt,
     SeekStmt,
     SourceSpan,
+    SuperExpr,
     TypeDeclEnum,
     TypeDeclRecord,
     UnaryExpr,
@@ -153,6 +160,9 @@ class Parser:
 
         if self.match(T.TYPE):
             return self.with_span(self.parse_type_decl(), start_tok)
+
+        if self.match(T.CLASS):
+            return self.with_span(self.parse_class_decl(), start_tok)
 
         if self.match(T.INPUT):
             target = self.parse_lvalue()
@@ -289,12 +299,6 @@ class Parser:
             expr = self.parse_expression()
             return self.with_span(ReturnStmt(expr), start_tok)
 
-        if self.check(T.CLASS):
-            raise self.err(
-                self.peek(),
-                "CLASS is not implemented in this minimal prototype",
-            )
-
         if self.check(T.IDENT):
             save = self.current
             target = self.parse_lvalue()
@@ -304,6 +308,18 @@ class Parser:
                 return self.with_span(AssignStmt(target, expr), start_tok)
 
             self.current = save
+            expr = self.parse_expression()
+
+            if isinstance(expr, MethodCallExpr):
+                return self.with_span(MethodCallStmt(expr), start_tok)
+
+            self.current = save
+
+        if self.check(T.SUPER):
+            expr = self.parse_expression()
+
+            if isinstance(expr, MethodCallExpr):
+                return self.with_span(MethodCallStmt(expr), start_tok)
 
         tok = self.peek()
         raise self.err(tok, f"Expected statement, got {tok.lexeme!r}")
@@ -371,6 +387,131 @@ class Parser:
 
         self.consume(T.ENDTYPE, "Expected ENDTYPE")
         return TypeDeclRecord(name, fields)
+
+    def parse_class_decl(self):
+        name = self.consume(T.IDENT, "Expected class name after CLASS").lexeme
+
+        parent_name = None
+        if self.match(T.INHERITS):
+            parent_name = self.consume(
+                T.IDENT,
+                "Expected superclass name after INHERITS",
+            ).lexeme
+
+        members = []
+        initializers = []
+
+        self.skip_newlines()
+
+        while not self.check(T.ENDCLASS):
+            if self.check(T.EOF):
+                raise IncompleteInput("Unexpected EOF: expected ENDCLASS")
+
+            access = T.PUBLIC
+            access_explicit = False
+
+            if self.match(T.PUBLIC):
+                access = T.PUBLIC
+                access_explicit = True
+            elif self.match(T.PRIVATE):
+                access = T.PRIVATE
+                access_explicit = True
+
+            if self.match(T.PROCEDURE):
+                members.append(
+                    self.parse_class_method_decl(
+                        access,
+                        T.PROCEDURE,
+                    )
+                )
+                self.skip_newlines()
+                continue
+
+            if self.match(T.FUNCTION):
+                members.append(
+                    self.parse_class_method_decl(
+                        access,
+                        T.FUNCTION,
+                    )
+                )
+                self.skip_newlines()
+                continue
+
+            if self.match(T.DECLARE):
+                members.append(self.parse_class_field_after_declare(access))
+                self.skip_newlines()
+                continue
+
+            if self.check(T.IDENT) and self.check_next(T.COLON):
+                field_name = self.advance().lexeme
+                self.consume(T.COLON, "Expected ':' after class property name")
+                field_type = self.parse_type()
+                members.append(ClassFieldDecl(access, field_name, field_type))
+                self.skip_newlines()
+                continue
+
+            if access_explicit:
+                raise self.err(
+                    self.peek(),
+                    "Expected class property or method after access modifier",
+                )
+
+            initializers.append(self.parse_statement())
+            self.skip_newlines()
+
+        self.consume(T.ENDCLASS, "Expected ENDCLASS")
+        return ClassDecl(name, parent_name, members, initializers)
+
+    def parse_class_field_after_declare(self, access: str):
+        field_name = self.consume(
+            T.IDENT,
+            "Expected class property name after DECLARE",
+        ).lexeme
+        self.consume(T.COLON, "Expected ':' after class property name")
+        field_type = self.parse_type()
+        return ClassFieldDecl(access, field_name, field_type)
+
+    def parse_class_method_decl(self, access: str, kind: str):
+        name_tok = self.parse_callable_name("Expected method name")
+        self.consume(T.LPAREN, "Expected '(' after method name")
+        params = self.parse_params()
+        self.consume(T.RPAREN, "Expected ')' after method parameters")
+
+        return_type = None
+
+        if kind == T.FUNCTION:
+            self.consume(T.RETURNS, "Expected RETURNS after function parameters")
+            return_type = self.parse_type()
+
+            for param in params:
+                if param.passing == T.BYREF:
+                    raise self.err(
+                        name_tok,
+                        "FUNCTION parameters cannot be passed BYREF",
+                    )
+
+            body = self.parse_block({T.ENDFUNCTION})
+            self.consume(T.ENDFUNCTION, "Expected ENDFUNCTION")
+
+        else:
+            body = self.parse_block({T.ENDPROCEDURE})
+            self.consume(T.ENDPROCEDURE, "Expected ENDPROCEDURE")
+
+        return MethodDecl(
+            access=access,
+            kind=kind,
+            name=name_tok.lexeme,
+            params=params,
+            return_type=return_type,
+            body=body,
+            span=SourceSpan(name_tok.line, name_tok.col),
+        )
+
+    def parse_callable_name(self, message: str) -> Token:
+        if self.check(T.IDENT) or self.check(T.NEW):
+            return self.advance()
+
+        raise self.err(self.peek(), message)
 
     def parse_procedure_decl(self):
         name = self.consume(T.IDENT, "Expected procedure name").lexeme
@@ -578,6 +719,12 @@ class Parser:
 
         raise self.err(self.peek(), "CONSTANT value must be a literal")
 
+    def parse_member_name(self) -> str:
+        if self.check(T.IDENT) or self.check(T.NEW):
+            return self.advance().lexeme
+
+        raise self.err(self.peek(), "Expected member name after '.'")
+
     def parse_lvalue(self):
         name_tok = self.consume(T.IDENT, "Expected variable name")
         expr = VariableExpr(name_tok.lexeme)
@@ -595,11 +742,15 @@ class Parser:
                 expr = ArrayAccessExpr(expr, indices)
                 continue
 
-            if self.match(T.DOT):
-                field_name = self.consume(
-                    T.IDENT,
-                    "Expected field name after '.'",
-                ).lexeme
+            if self.check(T.DOT):
+                before_dot = self.current
+                self.advance()
+                field_name = self.parse_member_name()
+
+                if self.check(T.LPAREN):
+                    self.current = before_dot
+                    break
+
                 target = FieldTarget(expr, field_name)
                 expr = FieldAccessExpr(expr, field_name)
                 continue
@@ -651,6 +802,34 @@ class Parser:
         if self.match(T.BOOL_LIT):
             return LiteralExpr(self.previous().literal)
 
+        if self.match(T.NEW):
+            class_name = self.consume(
+                T.IDENT,
+                "Expected class name after NEW",
+            ).lexeme
+            self.consume(T.LPAREN, "Expected '(' after class name")
+            args = self.parse_arguments_after_lparen()
+            return NewExpr(class_name, args)
+
+        if self.match(T.SUPER):
+            expr = SuperExpr()
+
+            while True:
+                if self.match(T.DOT):
+                    member_name = self.parse_member_name()
+
+                    if self.match(T.LPAREN):
+                        args = self.parse_arguments_after_lparen()
+                        expr = MethodCallExpr(expr, member_name, args)
+                    else:
+                        expr = FieldAccessExpr(expr, member_name)
+
+                    continue
+
+                break
+
+            return expr
+
         if self.match(T.IDENT):
             name = self.previous().lexeme
 
@@ -667,11 +846,14 @@ class Parser:
                     continue
 
                 if self.match(T.DOT):
-                    field_name = self.consume(
-                        T.IDENT,
-                        "Expected field name after '.'",
-                    ).lexeme
-                    expr = FieldAccessExpr(expr, field_name)
+                    member_name = self.parse_member_name()
+
+                    if self.match(T.LPAREN):
+                        args = self.parse_arguments_after_lparen()
+                        expr = MethodCallExpr(expr, member_name, args)
+                    else:
+                        expr = FieldAccessExpr(expr, member_name)
+
                     continue
 
                 break
@@ -740,6 +922,12 @@ class Parser:
 
     def check_any(self, types: set[str]) -> bool:
         return self.peek().type in types
+
+    def check_next(self, type_: str) -> bool:
+        if self.current + 1 >= len(self.tokens):
+            return False
+
+        return self.tokens[self.current + 1].type == type_
 
     def advance(self) -> Token:
         if not self.is_at_end():

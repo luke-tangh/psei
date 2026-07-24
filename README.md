@@ -251,3 +251,54 @@ Run tests:
 ```bash
 python -m pytest -q
 ```
+
+## Object-oriented pseudocode notes
+
+Phase 4 adds a practical subset of Cambridge-style object-oriented pseudocode:
+
+```text
+CLASS Pet
+   PRIVATE Name : STRING
+
+   PUBLIC PROCEDURE NEW(GivenName : STRING)
+      Name ← GivenName
+   ENDPROCEDURE
+
+   PUBLIC FUNCTION GetName() RETURNS STRING
+      RETURN Name
+   ENDFUNCTION
+ENDCLASS
+
+CLASS Cat INHERITS Pet
+   PRIVATE Breed : STRING
+
+   PUBLIC PROCEDURE NEW(GivenName : STRING, GivenBreed : STRING)
+      SUPER.NEW(GivenName)
+      Breed ← GivenBreed
+   ENDPROCEDURE
+
+   PUBLIC FUNCTION GetBreed() RETURNS STRING
+      RETURN Breed
+   ENDFUNCTION
+ENDCLASS
+
+MyCat ← NEW Cat("Kitty", "Shorthaired")
+OUTPUT MyCat.GetName()
+OUTPUT MyCat.GetBreed()
+```
+
+Supported OOP features:
+
+- `CLASS ... ENDCLASS`
+- `INHERITS`
+- `PUBLIC` and `PRIVATE` modifiers are parsed and stored
+- constructors as `PROCEDURE NEW(...)`
+- object creation with `NEW ClassName(...)`
+- method calls using dot notation, for example `Player.SetAttempts(5)`
+- method functions inside expressions, for example `Player.GetAttempts()`
+- superclass constructor/method calls using `SUPER.MethodName(...)`
+- per-object properties with default values
+- method bodies can access object properties by name
+
+Access modifiers are currently informational only; runtime enforcement of
+`PRIVATE` members is not implemented yet.

@@ -175,6 +175,33 @@ class TypeDeclRecord:
 
 
 @dataclass
+class ClassFieldDecl:
+    access: str
+    name: str
+    type_spec: Any
+
+
+@dataclass
+class MethodDecl:
+    access: str
+    kind: str
+    name: str
+    params: list[Any]
+    return_type: Any | None
+    body: list[Any]
+    span: SourceSpan | None = None
+
+
+@dataclass
+class ClassDecl:
+    name: str
+    parent_name: str | None
+    members: list[Any]
+    initializers: list[Any]
+    span: SourceSpan | None = None
+
+
+@dataclass
 class Param:
     name: str
     type_spec: Any
@@ -202,6 +229,12 @@ class FunctionDecl:
 class CallStmt:
     name: str
     args: list[Any]
+    span: SourceSpan | None = None
+
+
+@dataclass
+class MethodCallStmt:
+    call: Any
     span: SourceSpan | None = None
 
 
@@ -273,3 +306,21 @@ class BinaryExpr:
 class CallExpr:
     name: str
     args: list[Any]
+
+
+@dataclass
+class MethodCallExpr:
+    object_expr: Any
+    method_name: str
+    args: list[Any]
+
+
+@dataclass
+class NewExpr:
+    class_name: str
+    args: list[Any]
+
+
+@dataclass
+class SuperExpr:
+    pass
