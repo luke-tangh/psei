@@ -1,0 +1,12 @@
+PROCEDURE SetToTen(BYREF X : INTEGER)
+   X ← 10
+ENDPROCEDURE
+
+DECLARE Values : ARRAY[1:2] OF INTEGER
+
+Values[1] ← 1
+Values[2] ← 2
+
+CALL SetToTen(Values[2])
+
+OUTPUT Values[1], ",", Values[2]

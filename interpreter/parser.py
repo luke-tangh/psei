@@ -7,17 +7,22 @@ from .ast_nodes import (
     AssignStmt,
     BinaryExpr,
     CallExpr,
+    CallStmt,
     CaseClause,
     CaseStmt,
     ConstantStmt,
     DeclareStmt,
     ForStmt,
+    FunctionDecl,
     IfStmt,
     InputStmt,
     LiteralExpr,
     OutputStmt,
+    Param,
+    ProcedureDecl,
     Program,
     RepeatStmt,
+    ReturnStmt,
     SourceSpan,
     UnaryExpr,
     VariableExpr,
@@ -204,23 +209,33 @@ class Parser:
                 start_tok,
             )
 
-        if self.match(T.CALL):
-            raise self.err(
-                self.previous(),
-                "CALL / PROCEDURE is not implemented in this minimal prototype",
-            )
+        if self.match(T.PROCEDURE):
+            return self.with_span(self.parse_procedure_decl(), start_tok)
 
-        if self.check(T.PROCEDURE) or self.check(T.FUNCTION):
-            raise self.err(
-                self.peek(),
-                "PROCEDURE / FUNCTION is not implemented in this minimal prototype",
-            )
+        if self.match(T.FUNCTION):
+            return self.with_span(self.parse_function_decl(), start_tok)
+
+        if self.match(T.CALL):
+            name = self.consume(T.IDENT, "Expected procedure name after CALL").lexeme
+            self.consume(T.LPAREN, "Expected '(' after procedure name")
+            args = self.parse_arguments_after_lparen()
+            return self.with_span(CallStmt(name, args), start_tok)
+
+        if self.match(T.RETURN):
+            expr = self.parse_expression()
+            return self.with_span(ReturnStmt(expr), start_tok)
 
         if self.check(T.TYPE):
-            raise self.err(self.peek(), "TYPE is not implemented in this minimal prototype")
+            raise self.err(
+                self.peek(),
+                "TYPE is not implemented in this minimal prototype",
+            )
 
         if self.check(T.CLASS):
-            raise self.err(self.peek(), "CLASS is not implemented in this minimal prototype")
+            raise self.err(
+                self.peek(),
+                "CLASS is not implemented in this minimal prototype",
+            )
 
         if self.check(T.IDENT):
             save = self.current
@@ -246,6 +261,63 @@ class Parser:
         self.consume(T.EQUAL, "Expected '=' after constant name")
         expr = self.parse_literal_only()
         return ConstantStmt(name, expr)
+
+    def parse_procedure_decl(self):
+        name = self.consume(T.IDENT, "Expected procedure name").lexeme
+        self.consume(T.LPAREN, "Expected '(' after procedure name")
+        params = self.parse_params()
+        self.consume(T.RPAREN, "Expected ')' after procedure parameters")
+
+        body = self.parse_block({T.ENDPROCEDURE})
+        self.consume(T.ENDPROCEDURE, "Expected ENDPROCEDURE")
+
+        return ProcedureDecl(name, params, body)
+
+    def parse_function_decl(self):
+        name_tok = self.consume(T.IDENT, "Expected function name")
+        self.consume(T.LPAREN, "Expected '(' after function name")
+        params = self.parse_params()
+        self.consume(T.RPAREN, "Expected ')' after function parameters")
+
+        self.consume(T.RETURNS, "Expected RETURNS after function parameters")
+        return_type = self.parse_type()
+
+        for param in params:
+            if param.passing == T.BYREF:
+                raise self.err(
+                    name_tok,
+                    "FUNCTION parameters cannot be passed BYREF",
+                )
+
+        body = self.parse_block({T.ENDFUNCTION})
+        self.consume(T.ENDFUNCTION, "Expected ENDFUNCTION")
+
+        return FunctionDecl(name_tok.lexeme, params, return_type, body)
+
+    def parse_params(self) -> list[Param]:
+        params = []
+
+        if self.check(T.RPAREN):
+            return params
+
+        passing = T.BYVAL
+
+        while True:
+            if self.match(T.BYVAL):
+                passing = T.BYVAL
+            elif self.match(T.BYREF):
+                passing = T.BYREF
+
+            name = self.consume(T.IDENT, "Expected parameter name").lexeme
+            self.consume(T.COLON, "Expected ':' after parameter name")
+            type_spec = self.parse_type()
+
+            params.append(Param(name, type_spec, passing))
+
+            if not self.match(T.COMMA):
+                break
+
+        return params
 
     def parse_case(self):
         self.consume(T.OF, "Expected OF after CASE")
@@ -450,15 +522,7 @@ class Parser:
             name = self.previous().lexeme
 
             if self.match(T.LPAREN):
-                args = []
-
-                if not self.check(T.RPAREN):
-                    args.append(self.parse_expression())
-
-                    while self.match(T.COMMA):
-                        args.append(self.parse_expression())
-
-                self.consume(T.RPAREN, "Expected ')' after function arguments")
+                args = self.parse_arguments_after_lparen()
                 expr = CallExpr(name, args)
             else:
                 expr = VariableExpr(name)
@@ -480,6 +544,18 @@ class Parser:
             raise IncompleteInput("Unexpected EOF: expected expression")
 
         raise self.err(tok, f"Expected expression, got {tok.lexeme!r}")
+
+    def parse_arguments_after_lparen(self) -> list:
+        args = []
+
+        if not self.check(T.RPAREN):
+            args.append(self.parse_expression())
+
+            while self.match(T.COMMA):
+                args.append(self.parse_expression())
+
+        self.consume(T.RPAREN, "Expected ')' after arguments")
+        return args
 
     def parse_index_list_after_lbracket(self) -> list:
         indices = [self.parse_expression()]

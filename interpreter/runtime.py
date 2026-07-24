@@ -76,11 +76,44 @@ class ArrayValue:
 
 
 @dataclass
+class Reference:
+    type_spec: Any
+    getter: Callable[[], Any]
+    setter: Callable[[Any], None]
+    description: str = ""
+
+    def get(self) -> Any:
+        return self.getter()
+
+    def set(self, value: Any):
+        self.setter(coerce_value(value, self.type_spec))
+
+
+@dataclass
 class Binding:
     original_name: str
     type_spec: Any
     value: Any
     constant: bool = False
+    reference: Reference | None = None
+
+    def read(self) -> Any:
+        if self.reference is not None:
+            return self.reference.get()
+
+        return self.value
+
+    def write(self, value: Any):
+        if self.constant:
+            raise PseudoRuntimeError(
+                f"Cannot assign to constant {self.original_name!r}"
+            )
+
+        if self.reference is not None:
+            self.reference.set(value)
+            return
+
+        self.value = coerce_value(value, self.type_spec)
 
 
 class Environment:
@@ -145,6 +178,28 @@ class Environment:
             constant=constant,
         )
 
+    def define_reference(
+        self,
+        name: str,
+        type_spec: Any,
+        reference: Reference,
+    ):
+        key = self.norm(name)
+
+        if key in self.bindings:
+            old = self.bindings[key].original_name
+            raise PseudoRuntimeError(
+                f"Identifier {name!r} already declared as {old!r}"
+            )
+
+        self.bindings[key] = Binding(
+            original_name=name,
+            type_spec=type_spec,
+            value=None,
+            constant=False,
+            reference=reference,
+        )
+
     def define_constant(self, name: str, value: Any):
         type_spec = infer_type(value)
         self.define(name, type_spec, value, constant=True)
@@ -161,16 +216,10 @@ class Environment:
             return
 
         binding = env.bindings[self.norm(name)]
-
-        if binding.constant:
-            raise PseudoRuntimeError(
-                f"Cannot assign to constant {binding.original_name!r}"
-            )
-
-        binding.value = coerce_value(value, binding.type_spec)
+        binding.write(value)
 
     def get(self, name: str) -> Any:
-        return self.get_binding(name).value
+        return self.get_binding(name).read()
 
     def get_binding(self, name: str) -> Binding:
         env = self.resolve_env(name)
@@ -213,7 +262,7 @@ class Environment:
         return (
             f"{const}{binding.original_name} : "
             f"{type_to_str(binding.type_spec)} = "
-            f"{debug_value(binding.value)}"
+            f"{debug_value(binding.read())}"
         )
 
 
@@ -229,6 +278,9 @@ class Runtime:
         self.strict = strict
         self.global_env = Environment(strict=strict, name="global")
         self._env_stack: list[Environment] = [self.global_env]
+
+        self.procedures: dict[str, Any] = {}
+        self.functions: dict[str, Any] = {}
 
         self.input_provider = input_provider if input_provider is not None else input
         self.output_writer = output_writer if output_writer is not None else print
@@ -261,6 +313,60 @@ class Runtime:
             yield self.env
         finally:
             self.pop_scope()
+
+    def register_procedure(self, decl: Any):
+        key = Environment.norm(decl.name)
+
+        if key in self.procedures:
+            raise PseudoRuntimeError(f"PROCEDURE {decl.name!r} is already defined")
+
+        if key in self.functions:
+            raise PseudoRuntimeError(
+                f"Identifier {decl.name!r} is already defined as a FUNCTION"
+            )
+
+        self.procedures[key] = decl
+
+    def register_function(self, decl: Any):
+        key = Environment.norm(decl.name)
+
+        if key in self.functions:
+            raise PseudoRuntimeError(f"FUNCTION {decl.name!r} is already defined")
+
+        if key in self.procedures:
+            raise PseudoRuntimeError(
+                f"Identifier {decl.name!r} is already defined as a PROCEDURE"
+            )
+
+        self.functions[key] = decl
+
+    def has_procedure(self, name: str) -> bool:
+        return Environment.norm(name) in self.procedures
+
+    def has_function(self, name: str) -> bool:
+        return Environment.norm(name) in self.functions
+
+    def get_procedure(self, name: str) -> Any:
+        key = Environment.norm(name)
+
+        if key in self.procedures:
+            return self.procedures[key]
+
+        if key in self.functions:
+            raise PseudoRuntimeError(f"{name!r} is a FUNCTION, not a PROCEDURE")
+
+        raise PseudoRuntimeError(f"Unknown PROCEDURE {name!r}")
+
+    def get_function(self, name: str) -> Any:
+        key = Environment.norm(name)
+
+        if key in self.functions:
+            return self.functions[key]
+
+        if key in self.procedures:
+            raise PseudoRuntimeError(f"{name!r} is a PROCEDURE, not a FUNCTION")
+
+        raise PseudoRuntimeError(f"Unknown FUNCTION {name!r}")
 
 
 def type_to_str(type_spec: Any) -> str:

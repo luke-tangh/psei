@@ -102,6 +102,43 @@ class ForStmt:
 
 
 @dataclass
+class Param:
+    name: str
+    type_spec: Any
+    passing: str
+
+
+@dataclass
+class ProcedureDecl:
+    name: str
+    params: list[Param]
+    body: list[Any]
+    span: SourceSpan | None = None
+
+
+@dataclass
+class FunctionDecl:
+    name: str
+    params: list[Param]
+    return_type: Any
+    body: list[Any]
+    span: SourceSpan | None = None
+
+
+@dataclass
+class CallStmt:
+    name: str
+    args: list[Any]
+    span: SourceSpan | None = None
+
+
+@dataclass
+class ReturnStmt:
+    expr: Any
+    span: SourceSpan | None = None
+
+
+@dataclass
 class VarTarget:
     name: str
 

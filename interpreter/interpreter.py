@@ -10,16 +10,20 @@ from .ast_nodes import (
     AssignStmt,
     BinaryExpr,
     CallExpr,
+    CallStmt,
     CaseStmt,
     ConstantStmt,
     DeclareStmt,
     ForStmt,
+    FunctionDecl,
     IfStmt,
     InputStmt,
     LiteralExpr,
     OutputStmt,
+    ProcedureDecl,
     Program,
     RepeatStmt,
+    ReturnStmt,
     UnaryExpr,
     VariableExpr,
     VarTarget,
@@ -28,7 +32,9 @@ from .ast_nodes import (
 from .errors import PseudoRuntimeError
 from .runtime import (
     ArrayValue,
+    Reference,
     Runtime,
+    coerce_value,
     output_value,
     runtime_type_name,
     same_type,
@@ -36,6 +42,13 @@ from .runtime import (
 )
 from .tokens import T
 from .values import Char, DateValue, make_date
+
+
+class ReturnSignal(Exception):
+    def __init__(self, value: Any, span: Any = None):
+        super().__init__()
+        self.value = value
+        self.span = span
 
 
 class Interpreter:
@@ -48,7 +61,23 @@ class Interpreter:
 
     def execute_program(self, program: Program):
         for stmt in program.statements:
-            self.execute(stmt)
+            if isinstance(stmt, (ProcedureDecl, FunctionDecl)):
+                self.execute(stmt)
+
+        for stmt in program.statements:
+            if isinstance(stmt, (ProcedureDecl, FunctionDecl)):
+                continue
+
+            try:
+                self.execute(stmt)
+
+            except ReturnSignal as signal:
+                err = PseudoRuntimeError("RETURN can only be used inside FUNCTION")
+
+                if signal.span is not None:
+                    raise err.with_location(signal.span.line, signal.span.col) from None
+
+                raise err from None
 
     def execute_block(self, statements: list[Any]):
         for stmt in statements:
@@ -131,6 +160,22 @@ class Interpreter:
             self.execute_for(stmt)
             return
 
+        if isinstance(stmt, ProcedureDecl):
+            self.runtime.register_procedure(stmt)
+            return
+
+        if isinstance(stmt, FunctionDecl):
+            self.runtime.register_function(stmt)
+            return
+
+        if isinstance(stmt, CallStmt):
+            self.call_procedure(stmt.name, stmt.args)
+            return
+
+        if isinstance(stmt, ReturnStmt):
+            value = self.eval(stmt.expr)
+            raise ReturnSignal(value, stmt.span)
+
         raise PseudoRuntimeError(f"Unknown statement type: {stmt!r}")
 
     def execute_case(self, stmt: CaseStmt):
@@ -185,6 +230,126 @@ class Interpreter:
             self.env.assign(stmt.var_name, i)
             self.execute_block(stmt.body)
             i += step
+
+    def call_procedure(self, name: str, arg_exprs: list[Any]):
+        decl = self.runtime.get_procedure(name)
+        prepared = self.prepare_arguments(
+            decl.params,
+            arg_exprs,
+            f"PROCEDURE {decl.name}",
+        )
+
+        with self.runtime.scope(f"PROCEDURE {decl.name}"):
+            self.bind_prepared_arguments(prepared)
+
+            try:
+                self.execute_block(decl.body)
+
+            except ReturnSignal as signal:
+                err = PseudoRuntimeError("RETURN cannot be used in a PROCEDURE")
+
+                if signal.span is not None:
+                    raise err.with_location(signal.span.line, signal.span.col) from None
+
+                raise err from None
+
+    def call_function(self, name: str, arg_exprs: list[Any]) -> Any:
+        decl = self.runtime.get_function(name)
+        prepared = self.prepare_arguments(
+            decl.params,
+            arg_exprs,
+            f"FUNCTION {decl.name}",
+        )
+
+        with self.runtime.scope(f"FUNCTION {decl.name}"):
+            self.bind_prepared_arguments(prepared)
+
+            try:
+                self.execute_block(decl.body)
+
+            except ReturnSignal as signal:
+                return coerce_value(signal.value, decl.return_type)
+
+        raise PseudoRuntimeError(f"FUNCTION {decl.name!r} did not RETURN a value")
+
+    def prepare_arguments(
+        self,
+        params: list[Any],
+        arg_exprs: list[Any],
+        context: str,
+    ) -> list[tuple[Any, str, Any]]:
+        if len(arg_exprs) != len(params):
+            raise PseudoRuntimeError(
+                f"{context} expects {len(params)} argument(s), "
+                f"got {len(arg_exprs)}"
+            )
+
+        prepared = []
+
+        for param, arg_expr in zip(params, arg_exprs):
+            if param.passing == T.BYREF:
+                reference = self.make_reference(arg_expr)
+
+                if not same_type(reference.type_spec, param.type_spec):
+                    raise PseudoRuntimeError(
+                        f"BYREF parameter {param.name!r} expects "
+                        f"{type_to_str(param.type_spec)}, "
+                        f"got {type_to_str(reference.type_spec)}"
+                    )
+
+                prepared.append((param, T.BYREF, reference))
+
+            else:
+                value = self.eval(arg_expr)
+                value = coerce_value(value, param.type_spec)
+                prepared.append((param, T.BYVAL, value))
+
+        return prepared
+
+    def bind_prepared_arguments(self, prepared: list[tuple[Any, str, Any]]):
+        for param, passing, payload in prepared:
+            if passing == T.BYREF:
+                self.env.define_reference(param.name, param.type_spec, payload)
+            else:
+                self.env.define(param.name, param.type_spec, payload)
+
+    def make_reference(self, expr: Any) -> Reference:
+        if isinstance(expr, VariableExpr):
+            binding = self.env.get_binding(expr.name)
+
+            if binding.constant:
+                raise PseudoRuntimeError(
+                    f"Cannot pass constant {binding.original_name!r} BYREF"
+                )
+
+            return Reference(
+                type_spec=binding.type_spec,
+                getter=binding.read,
+                setter=binding.write,
+                description=expr.name,
+            )
+
+        if isinstance(expr, ArrayAccessExpr):
+            arr = self.eval(expr.array_expr)
+
+            if not isinstance(arr, ArrayValue):
+                raise PseudoRuntimeError("BYREF indexed argument is not an ARRAY")
+
+            indices = [
+                self.require_int(self.eval(e))
+                for e in expr.indices
+            ]
+
+            arr.validate_indices(indices)
+
+            return Reference(
+                type_spec=arr.type_spec.element_type,
+                getter=lambda arr=arr, indices=indices: arr.get(indices),
+                setter=lambda value, arr=arr, indices=indices: arr.set(indices, value),
+                description="ARRAY element",
+            )
+
+        raise PseudoRuntimeError("BYREF argument must be a variable or ARRAY element")
 
     def assign_target(self, target: Any, value: Any):
         if isinstance(target, VarTarget):
@@ -281,6 +446,14 @@ class Interpreter:
             return self.eval_binary(left, expr.op, right)
 
         if isinstance(expr, CallExpr):
+            if self.runtime.has_function(expr.name):
+                return self.call_function(expr.name, expr.args)
+
+            if self.runtime.has_procedure(expr.name):
+                raise PseudoRuntimeError(
+                    f"PROCEDURE {expr.name!r} cannot be used as a FUNCTION"
+                )
+
             args = [
                 self.eval(arg)
                 for arg in expr.args

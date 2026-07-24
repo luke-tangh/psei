@@ -1,0 +1,5 @@
+PROCEDURE Hello()
+   OUTPUT "Hello"
+ENDPROCEDURE
+
+CALL Hello()

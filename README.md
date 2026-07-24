@@ -48,6 +48,15 @@ Supported:
   - `FOR ... TO ... STEP ... NEXT`
   - `WHILE ... ENDWHILE`
   - `REPEAT ... UNTIL`
+- procedures:
+  - `PROCEDURE ... ENDPROCEDURE`
+  - `CALL ProcedureName(...)`
+  - `BYVAL`
+  - `BYREF`
+- functions:
+  - `FUNCTION ... RETURNS ... ENDFUNCTION`
+  - `RETURN`
+  - function calls inside expressions
 - built-in functions:
   - `RIGHT`
   - `MID`
@@ -57,22 +66,40 @@ Supported:
   - `INT`
   - `RAND`
 
-Phase 0 internal groundwork:
-
-- AST statement nodes now have a single `span` field each
-- the runtime has a scope stack with a global environment plus push/pop local scopes
-- `BYVAL` and `BYREF` are tokenised and reserved for future procedure/function support
-
 Not implemented yet:
 
-- `PROCEDURE`
-- `FUNCTION`
 - user-defined types
 - records
 - sets
 - pointers
 - file handling
 - object-oriented pseudocode
+
+## Procedure and function notes
+
+Parameters are passed by value by default.
+
+```text
+PROCEDURE AddOne(X : INTEGER)
+```
+
+`BYVAL` and `BYREF` can be used explicitly:
+
+```text
+PROCEDURE Swap(BYREF X : INTEGER, Y : INTEGER)
+```
+
+The passing mode persists across comma-separated parameters until another
+`BYVAL` or `BYREF` keyword appears. In the example above, both `X` and `Y` are
+passed by reference.
+
+Functions cannot have `BYREF` parameters.
+
+`RETURN` is valid only inside a function. It immediately exits the function and
+returns its value.
+
+Top-level procedure and function declarations are registered before normal
+statements are executed, so forward calls are supported.
 
 ## Strict mode semantics
 
@@ -101,10 +128,9 @@ Both modes still perform core runtime checks, including:
 - array bounds checks
 - arithmetic errors such as division by zero
 - Boolean condition checks for `IF`, `WHILE` and `REPEAT`
-
-`BYVAL` and `BYREF` are currently recognised as keywords only. Parameter
-passing behavior will be implemented when `PROCEDURE` and `FUNCTION` support is
-added.
+- procedure/function arity checks
+- function return type checks
+- `BYREF` argument lvalue and type checks
 
 Run with strict mode:
 
