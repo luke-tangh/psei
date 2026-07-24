@@ -41,7 +41,10 @@ from .values import Char, DateValue, make_date
 class Interpreter:
     def __init__(self, runtime: Runtime):
         self.runtime = runtime
-        self.env = runtime.env
+
+    @property
+    def env(self):
+        return self.runtime.env
 
     def execute_program(self, program: Program):
         for stmt in program.statements:
@@ -257,6 +260,22 @@ class Interpreter:
             raise PseudoRuntimeError(f"Unknown unary operator {expr.op.lexeme!r}")
 
         if isinstance(expr, BinaryExpr):
+            if expr.op.type == T.AND:
+                left = self.require_bool(self.eval(expr.left))
+
+                if not left:
+                    return False
+
+                return self.require_bool(self.eval(expr.right))
+
+            if expr.op.type == T.OR:
+                left = self.require_bool(self.eval(expr.left))
+
+                if left:
+                    return True
+
+                return self.require_bool(self.eval(expr.right))
+
             left = self.eval(expr.left)
             right = self.eval(expr.right)
             return self.eval_binary(left, expr.op, right)

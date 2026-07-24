@@ -4,6 +4,7 @@ import copy
 import itertools
 import random
 from collections.abc import Callable
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
@@ -83,16 +84,38 @@ class Binding:
 
 
 class Environment:
-    def __init__(self, *, strict: bool = False):
+    def __init__(
+        self,
+        *,
+        strict: bool = False,
+        parent: Environment | None = None,
+        name: str = "scope",
+    ):
         self.strict = strict
+        self.parent = parent
+        self.name = name
         self.bindings: dict[str, Binding] = {}
 
     @staticmethod
     def norm(name: str) -> str:
         return name.lower()
 
-    def exists(self, name: str) -> bool:
+    def exists_local(self, name: str) -> bool:
         return self.norm(name) in self.bindings
+
+    def exists(self, name: str) -> bool:
+        return self.resolve_env(name) is not None
+
+    def resolve_env(self, name: str) -> Environment | None:
+        key = self.norm(name)
+
+        if key in self.bindings:
+            return self
+
+        if self.parent is not None:
+            return self.parent.resolve_env(name)
+
+        return None
 
     def define(
         self,
@@ -127,9 +150,9 @@ class Environment:
         self.define(name, type_spec, value, constant=True)
 
     def assign(self, name: str, value: Any):
-        key = self.norm(name)
+        env = self.resolve_env(name)
 
-        if key not in self.bindings:
+        if env is None:
             if self.strict:
                 raise PseudoRuntimeError(f"Undefined variable {name!r}")
 
@@ -137,7 +160,7 @@ class Environment:
             self.define(name, inferred, value)
             return
 
-        binding = self.bindings[key]
+        binding = env.bindings[self.norm(name)]
 
         if binding.constant:
             raise PseudoRuntimeError(
@@ -150,29 +173,48 @@ class Environment:
         return self.get_binding(name).value
 
     def get_binding(self, name: str) -> Binding:
-        key = self.norm(name)
+        env = self.resolve_env(name)
 
-        if key not in self.bindings:
+        if env is None:
             raise PseudoRuntimeError(f"Undefined variable {name!r}")
 
-        return self.bindings[key]
+        return env.bindings[self.norm(name)]
 
-    def dump(self) -> str:
-        if not self.bindings:
-            return "(no variables)"
+    def dump(self, *, include_parents: bool = False) -> str:
+        envs = [self]
+
+        if include_parents:
+            parent = self.parent
+
+            while parent is not None:
+                envs.append(parent)
+                parent = parent.parent
 
         lines = []
+        seen: set[str] = set()
 
-        for binding in self.bindings.values():
-            const = "CONSTANT " if binding.constant else ""
+        for env in envs:
+            for key, binding in env.bindings.items():
+                if key in seen:
+                    continue
 
-            lines.append(
-                f"{const}{binding.original_name} : "
-                f"{type_to_str(binding.type_spec)} = "
-                f"{debug_value(binding.value)}"
-            )
+                seen.add(key)
+                lines.append(self._format_binding(binding))
+
+        if not lines:
+            return "(no variables)"
 
         return "\n".join(lines)
+
+    @staticmethod
+    def _format_binding(binding: Binding) -> str:
+        const = "CONSTANT " if binding.constant else ""
+
+        return (
+            f"{const}{binding.original_name} : "
+            f"{type_to_str(binding.type_spec)} = "
+            f"{debug_value(binding.value)}"
+        )
 
 
 class Runtime:
@@ -185,10 +227,40 @@ class Runtime:
         rng: random.Random | None = None,
     ):
         self.strict = strict
-        self.env = Environment(strict=strict)
+        self.global_env = Environment(strict=strict, name="global")
+        self._env_stack: list[Environment] = [self.global_env]
+
         self.input_provider = input_provider if input_provider is not None else input
         self.output_writer = output_writer if output_writer is not None else print
         self.rng = rng if rng is not None else random.Random()
+
+    @property
+    def env(self) -> Environment:
+        return self._env_stack[-1]
+
+    def push_scope(self, name: str = "local") -> Environment:
+        env = Environment(
+            strict=self.strict,
+            parent=self.env,
+            name=name,
+        )
+        self._env_stack.append(env)
+        return env
+
+    def pop_scope(self) -> Environment:
+        if len(self._env_stack) == 1:
+            raise PseudoRuntimeError("Cannot pop the global scope")
+
+        return self._env_stack.pop()
+
+    @contextmanager
+    def scope(self, name: str = "local"):
+        self.push_scope(name)
+
+        try:
+            yield self.env
+        finally:
+            self.pop_scope()
 
 
 def type_to_str(type_spec: Any) -> str:

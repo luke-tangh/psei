@@ -1,0 +1,14 @@
+DECLARE X : INTEGER
+X ← 0
+
+IF FALSE AND 10 / X > 1 THEN
+   OUTPUT "bad"
+ELSE
+   OUTPUT "AND skipped"
+ENDIF
+
+IF TRUE OR 10 / X > 1 THEN
+   OUTPUT "OR skipped"
+ELSE
+   OUTPUT "bad"
+ENDIF

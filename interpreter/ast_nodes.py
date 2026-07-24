@@ -26,14 +26,12 @@ class DeclareStmt:
     name: str
     type_spec: Any
     span: SourceSpan | None = None
-    span: SourceSpan | None = None
 
 
 @dataclass
 class ConstantStmt:
     name: str
     expr: Any
-    span: SourceSpan | None = None
     span: SourceSpan | None = None
 
 
@@ -42,20 +40,17 @@ class AssignStmt:
     target: Any
     expr: Any
     span: SourceSpan | None = None
-    span: SourceSpan | None = None
 
 
 @dataclass
 class InputStmt:
     target: Any
     span: SourceSpan | None = None
-    span: SourceSpan | None = None
 
 
 @dataclass
 class OutputStmt:
     exprs: list[Any]
-    span: SourceSpan | None = None
     span: SourceSpan | None = None
 
 
@@ -65,7 +60,6 @@ class IfStmt:
     then_body: list[Any]
     else_body: list[Any]
     span: SourceSpan | None = None
-    span: SourceSpan | None = None
 
 
 @dataclass
@@ -73,7 +67,6 @@ class CaseStmt:
     selector: Any
     clauses: list[Any]
     otherwise_body: list[Any]
-    span: SourceSpan | None = None
     span: SourceSpan | None = None
 
 
@@ -89,14 +82,12 @@ class WhileStmt:
     condition: Any
     body: list[Any]
     span: SourceSpan | None = None
-    span: SourceSpan | None = None
 
 
 @dataclass
 class RepeatStmt:
     body: list[Any]
     condition: Any
-    span: SourceSpan | None = None
     span: SourceSpan | None = None
 
 
@@ -107,7 +98,6 @@ class ForStmt:
     end: Any
     step: Any | None
     body: list[Any]
-    span: SourceSpan | None = None
     span: SourceSpan | None = None
 
 
