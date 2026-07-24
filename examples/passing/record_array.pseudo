@@ -1,0 +1,20 @@
+TYPE StudentRecord
+   DECLARE LastName : STRING
+   DECLARE YearGroup : INTEGER
+ENDTYPE
+
+DECLARE Form : ARRAY[1:2] OF StudentRecord
+DECLARE Index : INTEGER
+
+Form[1].LastName ← "Ali"
+Form[1].YearGroup ← 12
+
+Form[2].LastName ← "Mei"
+Form[2].YearGroup ← 11
+
+FOR Index ← 1 TO 2
+   Form[Index].YearGroup ← Form[Index].YearGroup + 1
+NEXT Index
+
+OUTPUT Form[1].LastName, ":", Form[1].YearGroup
+OUTPUT Form[2].LastName, ":", Form[2].YearGroup

@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
-from .ast_nodes import ArrayType
+from .ast_nodes import ArrayType, UserTypeRef
 from .errors import PseudoRuntimeError
 from .tokens import T
 from .values import Char, DateValue
@@ -22,6 +22,96 @@ BASIC_TYPES = {
     T.BOOLEAN,
     T.DATE,
 }
+
+
+def norm_identifier(name: str) -> str:
+    return name.lower()
+
+
+@dataclass
+class EnumType:
+    name: str
+    values: tuple[str, ...]
+    value_to_index: dict[str, int]
+
+    def ordinal_of(self, value_name: str) -> int:
+        key = norm_identifier(value_name)
+
+        if key not in self.value_to_index:
+            raise PseudoRuntimeError(
+                f"{value_name!r} is not a value of enumerated type {self.name}"
+            )
+
+        return self.value_to_index[key]
+
+
+@dataclass(frozen=True)
+class EnumValue:
+    type_spec: EnumType
+    name: str
+    ordinal: int
+
+    def __str__(self) -> str:
+        return self.name
+
+
+@dataclass
+class RecordFieldSpec:
+    original_name: str
+    type_spec: Any
+
+
+@dataclass
+class RecordType:
+    name: str
+    fields: dict[str, RecordFieldSpec]
+    completed: bool = False
+
+    def get_field(self, field_name: str) -> RecordFieldSpec:
+        key = norm_identifier(field_name)
+
+        if key not in self.fields:
+            raise PseudoRuntimeError(
+                f"Record type {self.name!r} has no field {field_name!r}"
+            )
+
+        return self.fields[key]
+
+
+@dataclass
+class RecordValue:
+    type_spec: RecordType
+    fields: dict[str, Any]
+
+    @classmethod
+    def create(cls, type_spec: RecordType) -> RecordValue:
+        if not type_spec.completed:
+            raise PseudoRuntimeError(
+                f"Record type {type_spec.name!r} is not completely defined"
+            )
+
+        fields = {}
+
+        for key, field in type_spec.fields.items():
+            fields[key] = copy.deepcopy(default_value(field.type_spec))
+
+        return cls(type_spec, fields)
+
+    def clone(self) -> RecordValue:
+        return RecordValue(self.type_spec, copy.deepcopy(self.fields))
+
+    def get(self, field_name: str) -> Any:
+        key = norm_identifier(field_name)
+        self.type_spec.get_field(field_name)
+        return self.fields[key]
+
+    def set(self, field_name: str, value: Any):
+        key = norm_identifier(field_name)
+        field = self.type_spec.get_field(field_name)
+        self.fields[key] = coerce_value(value, field.type_spec)
+
+    def field_type(self, field_name: str) -> Any:
+        return self.type_spec.get_field(field_name).type_spec
 
 
 @dataclass
@@ -131,7 +221,7 @@ class Environment:
 
     @staticmethod
     def norm(name: str) -> str:
-        return name.lower()
+        return norm_identifier(name)
 
     def exists_local(self, name: str) -> bool:
         return self.norm(name) in self.bindings
@@ -279,6 +369,9 @@ class Runtime:
         self.global_env = Environment(strict=strict, name="global")
         self._env_stack: list[Environment] = [self.global_env]
 
+        self.types: dict[str, Any] = {}
+        self.enum_values: dict[str, EnumValue] = {}
+
         self.procedures: dict[str, Any] = {}
         self.functions: dict[str, Any] = {}
 
@@ -313,6 +406,120 @@ class Runtime:
             yield self.env
         finally:
             self.pop_scope()
+
+    def resolve_type_spec(self, type_spec: Any) -> Any:
+        if isinstance(type_spec, ArrayType):
+            return ArrayType(
+                type_spec.bounds,
+                self.resolve_type_spec(type_spec.element_type),
+            )
+
+        if isinstance(type_spec, UserTypeRef):
+            key = norm_identifier(type_spec.name)
+
+            if key not in self.types:
+                raise PseudoRuntimeError(f"Unknown type {type_spec.name!r}")
+
+            return self.types[key]
+
+        return type_spec
+
+    def reserve_record_type(self, name: str):
+        key = norm_identifier(name)
+
+        if key in self.types:
+            raise PseudoRuntimeError(f"TYPE {name!r} is already defined")
+
+        self.types[key] = RecordType(name=name, fields={}, completed=False)
+
+    def register_enum_type(self, name: str, values: list[str]):
+        key = norm_identifier(name)
+
+        if key in self.types:
+            raise PseudoRuntimeError(f"TYPE {name!r} is already defined")
+
+        if not values:
+            raise PseudoRuntimeError("Enumerated TYPE must have at least one value")
+
+        seen_values: set[str] = set()
+        value_to_index: dict[str, int] = {}
+
+        for index, value in enumerate(values):
+            value_key = norm_identifier(value)
+
+            if value_key in seen_values:
+                raise PseudoRuntimeError(
+                    f"Duplicate enumerated value {value!r} in TYPE {name!r}"
+                )
+
+            if value_key in self.enum_values:
+                old = self.enum_values[value_key]
+                raise PseudoRuntimeError(
+                    f"Enumerated value {value!r} is already defined "
+                    f"by TYPE {old.type_spec.name!r}"
+                )
+
+            seen_values.add(value_key)
+            value_to_index[value_key] = index
+
+        enum_type = EnumType(
+            name=name,
+            values=tuple(values),
+            value_to_index=value_to_index,
+        )
+
+        self.types[key] = enum_type
+
+        for value in values:
+            ordinal = enum_type.ordinal_of(value)
+            self.enum_values[norm_identifier(value)] = EnumValue(
+                type_spec=enum_type,
+                name=value,
+                ordinal=ordinal,
+            )
+
+    def register_record_type(self, name: str, fields: list[Any]):
+        key = norm_identifier(name)
+
+        if key not in self.types:
+            self.types[key] = RecordType(name=name, fields={}, completed=False)
+
+        record_type = self.types[key]
+
+        if not isinstance(record_type, RecordType):
+            raise PseudoRuntimeError(f"TYPE {name!r} is already defined")
+
+        if record_type.completed:
+            raise PseudoRuntimeError(f"TYPE {name!r} is already defined")
+
+        field_specs: dict[str, RecordFieldSpec] = {}
+
+        for field in fields:
+            field_key = norm_identifier(field.name)
+
+            if field_key in field_specs:
+                raise PseudoRuntimeError(
+                    f"Duplicate field {field.name!r} in record TYPE {name!r}"
+                )
+
+            field_specs[field_key] = RecordFieldSpec(
+                original_name=field.name,
+                type_spec=self.resolve_type_spec(field.type_spec),
+            )
+
+        record_type.fields = field_specs
+        record_type.completed = True
+
+    def has_enum_value(self, name: str) -> bool:
+        return norm_identifier(name) in self.enum_values
+
+    def get_enum_value(self, name: str) -> EnumValue:
+        key = norm_identifier(name)
+
+        if key not in self.enum_values:
+            raise PseudoRuntimeError(f"Unknown enumerated value {name!r}")
+
+        return self.enum_values[key]
 
     def register_procedure(self, decl: Any):
         key = Environment.norm(decl.name)
@@ -378,6 +585,15 @@ def type_to_str(type_spec: Any) -> str:
 
         return f"ARRAY[{bounds}] OF {type_to_str(type_spec.element_type)}"
 
+    if isinstance(type_spec, UserTypeRef):
+        return type_spec.name
+
+    if isinstance(type_spec, EnumType):
+        return type_spec.name
+
+    if isinstance(type_spec, RecordType):
+        return type_spec.name
+
     return str(type_spec).upper()
 
 
@@ -388,6 +604,21 @@ def same_type(a: Any, b: Any) -> bool:
             and same_type(a.element_type, b.element_type)
         )
 
+    if isinstance(a, EnumType) and isinstance(b, EnumType):
+        return norm_identifier(a.name) == norm_identifier(b.name)
+
+    if isinstance(a, RecordType) and isinstance(b, RecordType):
+        return norm_identifier(a.name) == norm_identifier(b.name)
+
+    if isinstance(a, UserTypeRef) and isinstance(b, UserTypeRef):
+        return norm_identifier(a.name) == norm_identifier(b.name)
+
+    if isinstance(a, UserTypeRef) and isinstance(b, (EnumType, RecordType)):
+        return norm_identifier(a.name) == norm_identifier(b.name)
+
+    if isinstance(b, UserTypeRef) and isinstance(a, (EnumType, RecordType)):
+        return norm_identifier(a.name) == norm_identifier(b.name)
+
     if isinstance(a, str) and isinstance(b, str):
         return a.upper() == b.upper()
 
@@ -395,8 +626,25 @@ def same_type(a: Any, b: Any) -> bool:
 
 
 def default_value(type_spec: Any) -> Any:
+    if isinstance(type_spec, UserTypeRef):
+        raise PseudoRuntimeError(
+            f"Cannot create value for unresolved type {type_spec.name!r}"
+        )
+
     if isinstance(type_spec, ArrayType):
         return ArrayValue.create(type_spec)
+
+    if isinstance(type_spec, EnumType):
+        if not type_spec.values:
+            raise PseudoRuntimeError(
+                f"Enumerated type {type_spec.name!r} has no values"
+            )
+
+        first = type_spec.values[0]
+        return EnumValue(type_spec, first, type_spec.ordinal_of(first))
+
+    if isinstance(type_spec, RecordType):
+        return RecordValue.create(type_spec)
 
     t = type_to_str(type_spec)
 
@@ -425,6 +673,12 @@ def infer_type(value: Any) -> Any:
     if isinstance(value, ArrayValue):
         return value.type_spec
 
+    if isinstance(value, EnumValue):
+        return value.type_spec
+
+    if isinstance(value, RecordValue):
+        return value.type_spec
+
     if type(value) is bool:
         return T.BOOLEAN
 
@@ -447,8 +701,43 @@ def infer_type(value: Any) -> Any:
 
 
 def coerce_value(value: Any, type_spec: Any) -> Any:
+    if isinstance(type_spec, UserTypeRef):
+        raise PseudoRuntimeError(
+            f"Cannot assign value to unresolved type {type_spec.name!r}"
+        )
+
     if isinstance(type_spec, ArrayType):
         if not isinstance(value, ArrayValue):
+            raise PseudoRuntimeError(
+                f"Expected {type_to_str(type_spec)}, "
+                f"got {runtime_type_name(value)}"
+            )
+
+        if not same_type(value.type_spec, type_spec):
+            raise PseudoRuntimeError(
+                f"Cannot assign {type_to_str(value.type_spec)} "
+                f"to {type_to_str(type_spec)}"
+            )
+
+        return value.clone()
+
+    if isinstance(type_spec, EnumType):
+        if not isinstance(value, EnumValue):
+            raise PseudoRuntimeError(
+                f"Expected {type_to_str(type_spec)}, "
+                f"got {runtime_type_name(value)}"
+            )
+
+        if not same_type(value.type_spec, type_spec):
+            raise PseudoRuntimeError(
+                f"Cannot assign {type_to_str(value.type_spec)} "
+                f"to {type_to_str(type_spec)}"
+            )
+
+        return value
+
+    if isinstance(type_spec, RecordType):
+        if not isinstance(value, RecordValue):
             raise PseudoRuntimeError(
                 f"Expected {type_to_str(type_spec)}, "
                 f"got {runtime_type_name(value)}"
@@ -526,6 +815,12 @@ def debug_value(value: Any) -> str:
     if isinstance(value, ArrayValue):
         return f"<{type_to_str(value.type_spec)}>"
 
+    if isinstance(value, EnumValue):
+        return value.name
+
+    if isinstance(value, RecordValue):
+        return f"<{type_to_str(value.type_spec)}>"
+
     if isinstance(value, Char):
         if value == "\0":
             return "'\\0'"
@@ -543,6 +838,12 @@ def debug_value(value: Any) -> str:
 
 def output_value(value: Any) -> str:
     if isinstance(value, ArrayValue):
+        return f"<{type_to_str(value.type_spec)}>"
+
+    if isinstance(value, EnumValue):
+        return value.name
+
+    if isinstance(value, RecordValue):
         return f"<{type_to_str(value.type_spec)}>"
 
     if isinstance(value, bool):

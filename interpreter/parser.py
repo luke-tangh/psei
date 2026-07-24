@@ -12,19 +12,26 @@ from .ast_nodes import (
     CaseStmt,
     ConstantStmt,
     DeclareStmt,
+    FieldAccessExpr,
+    FieldTarget,
     ForStmt,
     FunctionDecl,
     IfStmt,
+    IndexTarget,
     InputStmt,
     LiteralExpr,
     OutputStmt,
     Param,
     ProcedureDecl,
     Program,
+    RecordField,
     RepeatStmt,
     ReturnStmt,
     SourceSpan,
+    TypeDeclEnum,
+    TypeDeclRecord,
     UnaryExpr,
+    UserTypeRef,
     VariableExpr,
     VarTarget,
     WhileStmt,
@@ -130,6 +137,9 @@ class Parser:
         if self.match(T.CONSTANT):
             return self.with_span(self.parse_constant(), start_tok)
 
+        if self.match(T.TYPE):
+            return self.with_span(self.parse_type_decl(), start_tok)
+
         if self.match(T.INPUT):
             target = self.parse_lvalue()
             return self.with_span(InputStmt(target), start_tok)
@@ -225,12 +235,6 @@ class Parser:
             expr = self.parse_expression()
             return self.with_span(ReturnStmt(expr), start_tok)
 
-        if self.check(T.TYPE):
-            raise self.err(
-                self.peek(),
-                "TYPE is not implemented in this minimal prototype",
-            )
-
         if self.check(T.CLASS):
             raise self.err(
                 self.peek(),
@@ -261,6 +265,51 @@ class Parser:
         self.consume(T.EQUAL, "Expected '=' after constant name")
         expr = self.parse_literal_only()
         return ConstantStmt(name, expr)
+
+    def parse_type_decl(self):
+        name = self.consume(T.IDENT, "Expected type name after TYPE").lexeme
+
+        if self.match(T.EQUAL):
+            self.consume(T.LPAREN, "Expected '(' before enumerated values")
+
+            values = [
+                self.consume(
+                    T.IDENT,
+                    "Expected enumerated value name",
+                ).lexeme
+            ]
+
+            while self.match(T.COMMA):
+                values.append(
+                    self.consume(
+                        T.IDENT,
+                        "Expected enumerated value name",
+                    ).lexeme
+                )
+
+            self.consume(T.RPAREN, "Expected ')' after enumerated values")
+            return TypeDeclEnum(name, values)
+
+        fields = []
+        self.skip_newlines()
+
+        while not self.check(T.ENDTYPE):
+            if self.check(T.EOF):
+                raise IncompleteInput("Unexpected EOF: expected ENDTYPE")
+
+            self.consume(T.DECLARE, "Expected DECLARE in record TYPE")
+            field_name = self.consume(
+                T.IDENT,
+                "Expected field name in record TYPE",
+            ).lexeme
+            self.consume(T.COLON, "Expected ':' after record field name")
+            field_type = self.parse_type()
+
+            fields.append(RecordField(field_name, field_type))
+            self.skip_newlines()
+
+        self.consume(T.ENDTYPE, "Expected ENDTYPE")
+        return TypeDeclRecord(name, fields)
 
     def parse_procedure_decl(self):
         name = self.consume(T.IDENT, "Expected procedure name").lexeme
@@ -423,6 +472,9 @@ class Parser:
         if self.check_any(self.BASIC_TYPE_TOKENS):
             return self.advance().type
 
+        if self.match(T.IDENT):
+            return UserTypeRef(self.previous().lexeme)
+
         tok = self.peek()
         raise self.err(tok, "Expected data type")
 
@@ -467,13 +519,33 @@ class Parser:
 
     def parse_lvalue(self):
         name_tok = self.consume(T.IDENT, "Expected variable name")
-        name = name_tok.lexeme
+        expr = VariableExpr(name_tok.lexeme)
+        target = VarTarget(name_tok.lexeme)
 
-        if self.match(T.LBRACKET):
-            indices = self.parse_index_list_after_lbracket()
-            return ArrayTarget(name, indices)
+        while True:
+            if self.match(T.LBRACKET):
+                indices = self.parse_index_list_after_lbracket()
 
-        return VarTarget(name)
+                if isinstance(expr, VariableExpr) and isinstance(target, VarTarget):
+                    target = ArrayTarget(expr.name, indices)
+                else:
+                    target = IndexTarget(expr, indices)
+
+                expr = ArrayAccessExpr(expr, indices)
+                continue
+
+            if self.match(T.DOT):
+                field_name = self.consume(
+                    T.IDENT,
+                    "Expected field name after '.'",
+                ).lexeme
+                target = FieldTarget(expr, field_name)
+                expr = FieldAccessExpr(expr, field_name)
+                continue
+
+            break
+
+        return target
 
     def parse_expression(self, min_prec: int = 1):
         left = self.parse_unary()
@@ -527,9 +599,21 @@ class Parser:
             else:
                 expr = VariableExpr(name)
 
-            while self.match(T.LBRACKET):
-                indices = self.parse_index_list_after_lbracket()
-                expr = ArrayAccessExpr(expr, indices)
+            while True:
+                if self.match(T.LBRACKET):
+                    indices = self.parse_index_list_after_lbracket()
+                    expr = ArrayAccessExpr(expr, indices)
+                    continue
+
+                if self.match(T.DOT):
+                    field_name = self.consume(
+                        T.IDENT,
+                        "Expected field name after '.'",
+                    ).lexeme
+                    expr = FieldAccessExpr(expr, field_name)
+                    continue
+
+                break
 
             return expr
 

@@ -14,9 +14,12 @@ from .ast_nodes import (
     CaseStmt,
     ConstantStmt,
     DeclareStmt,
+    FieldAccessExpr,
+    FieldTarget,
     ForStmt,
     FunctionDecl,
     IfStmt,
+    IndexTarget,
     InputStmt,
     LiteralExpr,
     OutputStmt,
@@ -24,6 +27,8 @@ from .ast_nodes import (
     Program,
     RepeatStmt,
     ReturnStmt,
+    TypeDeclEnum,
+    TypeDeclRecord,
     UnaryExpr,
     VariableExpr,
     VarTarget,
@@ -32,6 +37,8 @@ from .ast_nodes import (
 from .errors import PseudoRuntimeError
 from .runtime import (
     ArrayValue,
+    EnumValue,
+    RecordValue,
     Reference,
     Runtime,
     coerce_value,
@@ -61,11 +68,26 @@ class Interpreter:
 
     def execute_program(self, program: Program):
         for stmt in program.statements:
-            if isinstance(stmt, (ProcedureDecl, FunctionDecl)):
+            if isinstance(stmt, TypeDeclRecord):
+                self.runtime.reserve_record_type(stmt.name)
+
+        for stmt in program.statements:
+            if isinstance(stmt, TypeDeclEnum):
+                self.execute(stmt)
+
+        for stmt in program.statements:
+            if isinstance(stmt, TypeDeclRecord):
                 self.execute(stmt)
 
         for stmt in program.statements:
             if isinstance(stmt, (ProcedureDecl, FunctionDecl)):
+                self.execute(stmt)
+
+        for stmt in program.statements:
+            if isinstance(
+                stmt,
+                (TypeDeclEnum, TypeDeclRecord, ProcedureDecl, FunctionDecl),
+            ):
                 continue
 
             try:
@@ -97,8 +119,17 @@ class Interpreter:
             raise
 
     def _execute(self, stmt: Any):
+        if isinstance(stmt, TypeDeclEnum):
+            self.runtime.register_enum_type(stmt.name, stmt.values)
+            return
+
+        if isinstance(stmt, TypeDeclRecord):
+            self.runtime.register_record_type(stmt.name, stmt.fields)
+            return
+
         if isinstance(stmt, DeclareStmt):
-            self.env.define(stmt.name, stmt.type_spec)
+            type_spec = self.runtime.resolve_type_spec(stmt.type_spec)
+            self.env.define(stmt.name, type_spec)
             return
 
         if isinstance(stmt, ConstantStmt):
@@ -260,6 +291,7 @@ class Interpreter:
             arg_exprs,
             f"FUNCTION {decl.name}",
         )
+        return_type = self.runtime.resolve_type_spec(decl.return_type)
 
         with self.runtime.scope(f"FUNCTION {decl.name}"):
             self.bind_prepared_arguments(prepared)
@@ -268,7 +300,7 @@ class Interpreter:
                 self.execute_block(decl.body)
 
             except ReturnSignal as signal:
-                return coerce_value(signal.value, decl.return_type)
+                return coerce_value(signal.value, return_type)
 
         raise PseudoRuntimeError(f"FUNCTION {decl.name!r} did not RETURN a value")
 
@@ -277,7 +309,7 @@ class Interpreter:
         params: list[Any],
         arg_exprs: list[Any],
         context: str,
-    ) -> list[tuple[Any, str, Any]]:
+    ) -> list[tuple[str, str, Any, Any]]:
         if len(arg_exprs) != len(params):
             raise PseudoRuntimeError(
                 f"{context} expects {len(params)} argument(s), "
@@ -287,31 +319,33 @@ class Interpreter:
         prepared = []
 
         for param, arg_expr in zip(params, arg_exprs):
+            param_type = self.runtime.resolve_type_spec(param.type_spec)
+
             if param.passing == T.BYREF:
                 reference = self.make_reference(arg_expr)
 
-                if not same_type(reference.type_spec, param.type_spec):
+                if not same_type(reference.type_spec, param_type):
                     raise PseudoRuntimeError(
                         f"BYREF parameter {param.name!r} expects "
-                        f"{type_to_str(param.type_spec)}, "
+                        f"{type_to_str(param_type)}, "
                         f"got {type_to_str(reference.type_spec)}"
                     )
 
-                prepared.append((param, T.BYREF, reference))
+                prepared.append((param.name, T.BYREF, param_type, reference))
 
             else:
                 value = self.eval(arg_expr)
-                value = coerce_value(value, param.type_spec)
-                prepared.append((param, T.BYVAL, value))
+                value = coerce_value(value, param_type)
+                prepared.append((param.name, T.BYVAL, param_type, value))
 
         return prepared
 
-    def bind_prepared_arguments(self, prepared: list[tuple[Any, str, Any]]):
-        for param, passing, payload in prepared:
+    def bind_prepared_arguments(self, prepared: list[tuple[str, str, Any, Any]]):
+        for name, passing, type_spec, payload in prepared:
             if passing == T.BYREF:
-                self.env.define_reference(param.name, param.type_spec, payload)
+                self.env.define_reference(name, type_spec, payload)
             else:
-                self.env.define(param.name, param.type_spec, payload)
+                self.env.define(name, type_spec, payload)
 
     def make_reference(self, expr: Any) -> Reference:
         if isinstance(expr, VariableExpr):
@@ -349,7 +383,25 @@ class Interpreter:
                 description="ARRAY element",
             )
 
-        raise PseudoRuntimeError("BYREF argument must be a variable or ARRAY element")
+        if isinstance(expr, FieldAccessExpr):
+            record = self.eval(expr.record_expr)
+
+            if not isinstance(record, RecordValue):
+                raise PseudoRuntimeError("BYREF field argument is not a record")
+
+            field_type = record.field_type(expr.field_name)
+
+            return Reference(
+                type_spec=field_type,
+                getter=lambda record=record, name=expr.field_name: record.get(name),
+                setter=lambda value, record=record, name=expr.field_name: record.set(
+                    name,
+                    value,
+                ),
+                description="record field",
+            )
+
+        raise PseudoRuntimeError("BYREF argument must be a variable, ARRAY element or record field")
 
     def assign_target(self, target: Any, value: Any):
         if isinstance(target, VarTarget):
@@ -368,6 +420,29 @@ class Interpreter:
             ]
 
             arr.set(indices, value)
+            return
+
+        if isinstance(target, IndexTarget):
+            arr = self.eval(target.array_expr)
+
+            if not isinstance(arr, ArrayValue):
+                raise PseudoRuntimeError("Indexed assignment target is not an ARRAY")
+
+            indices = [
+                self.require_int(self.eval(expr))
+                for expr in target.indices
+            ]
+
+            arr.set(indices, value)
+            return
+
+        if isinstance(target, FieldTarget):
+            record = self.eval(target.record_expr)
+
+            if not isinstance(record, RecordValue):
+                raise PseudoRuntimeError("Field assignment target is not a record")
+
+            record.set(target.field_name, value)
             return
 
         raise PseudoRuntimeError(f"Invalid assignment target {target!r}")
@@ -390,6 +465,22 @@ class Interpreter:
 
             return arr.type_spec.element_type
 
+        if isinstance(target, IndexTarget):
+            arr = self.eval(target.array_expr)
+
+            if not isinstance(arr, ArrayValue):
+                raise PseudoRuntimeError("Indexed target is not an ARRAY")
+
+            return arr.type_spec.element_type
+
+        if isinstance(target, FieldTarget):
+            record = self.eval(target.record_expr)
+
+            if not isinstance(record, RecordValue):
+                raise PseudoRuntimeError("Field target is not a record")
+
+            return record.field_type(target.field_name)
+
         raise PseudoRuntimeError(f"Invalid target {target!r}")
 
     def eval(self, expr: Any) -> Any:
@@ -397,7 +488,13 @@ class Interpreter:
             return expr.value
 
         if isinstance(expr, VariableExpr):
-            return self.env.get(expr.name)
+            if self.env.exists(expr.name):
+                return self.env.get(expr.name)
+
+            if self.runtime.has_enum_value(expr.name):
+                return self.runtime.get_enum_value(expr.name)
+
+            raise PseudoRuntimeError(f"Undefined variable {expr.name!r}")
 
         if isinstance(expr, ArrayAccessExpr):
             arr = self.eval(expr.array_expr)
@@ -411,6 +508,14 @@ class Interpreter:
             ]
 
             return arr.get(indices)
+
+        if isinstance(expr, FieldAccessExpr):
+            record = self.eval(expr.record_expr)
+
+            if not isinstance(record, RecordValue):
+                raise PseudoRuntimeError("Field access target is not a record")
+
+            return record.get(expr.field_name)
 
         if isinstance(expr, UnaryExpr):
             right = self.eval(expr.right)
@@ -545,6 +650,13 @@ class Interpreter:
 
         elif isinstance(left, DateValue) and isinstance(right, DateValue):
             a, b = left.key(), right.key()
+
+        elif (
+            isinstance(left, EnumValue)
+            and isinstance(right, EnumValue)
+            and same_type(left.type_spec, right.type_spec)
+        ):
+            a, b = left.ordinal, right.ordinal
 
         else:
             raise PseudoRuntimeError(
@@ -739,4 +851,4 @@ def parse_input_value(text: str, type_spec: Any) -> Any:
     except ValueError as e:
         raise PseudoRuntimeError(f"Invalid input for {t}: {text!r}") from e
 
-    raise PseudoRuntimeError(f"Unsupported INPUT type {type_spec!r}")
+    raise PseudoRuntimeError(f"Unsupported INPUT type {type_to_str(type_spec)}")

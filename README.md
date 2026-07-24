@@ -20,6 +20,13 @@ Supported:
 - assignment using `←`
 - one-dimensional and two-dimensional arrays
 - whole-array assignment with cloning semantics
+- user-defined enumerated types:
+  - `TYPE Season = (Spring, Summer, Autumn, Winter)`
+- user-defined record types:
+  - `TYPE ... ENDTYPE`
+  - field access using dot notation, for example `Pupil.LastName`
+  - record assignment with cloning semantics
+  - arrays of records
 - `INPUT`
 - `OUTPUT`
 - arithmetic:
@@ -68,12 +75,54 @@ Supported:
 
 Not implemented yet:
 
-- user-defined types
-- records
 - sets
 - pointers
 - file handling
 - object-oriented pseudocode
+
+## User-defined type notes
+
+Enumerated types:
+
+```text
+TYPE Season = (Spring, Summer, Autumn, Winter)
+
+DECLARE ThisSeason : Season
+ThisSeason ← Spring
+```
+
+Enumerated values are case-insensitive identifiers. If a variable has the same
+name as an enumerated value, the variable shadows the enumerated value.
+
+Record types:
+
+```text
+TYPE StudentRecord
+   DECLARE LastName : STRING
+   DECLARE FirstName : STRING
+   DECLARE YearGroup : INTEGER
+ENDTYPE
+
+DECLARE Pupil : StudentRecord
+
+Pupil.LastName ← "Johnson"
+Pupil.YearGroup ← 6
+```
+
+Record fields are accessed using dot notation. Record values are copied on
+assignment, so assigning one record variable to another does not alias their
+field storage.
+
+Arrays of records are supported:
+
+```text
+DECLARE Form : ARRAY[1:30] OF StudentRecord
+
+Form[1].LastName ← "Ali"
+Form[1].YearGroup ← 12
+```
+
+Record fields and array elements can be passed `BYREF`.
 
 ## Procedure and function notes
 
@@ -98,7 +147,7 @@ Functions cannot have `BYREF` parameters.
 `RETURN` is valid only inside a function. It immediately exits the function and
 returns its value.
 
-Top-level procedure and function declarations are registered before normal
+Top-level type, procedure and function declarations are registered before normal
 statements are executed, so forward calls are supported.
 
 ## Strict mode semantics
@@ -126,6 +175,9 @@ Both modes still perform core runtime checks, including:
 - constant immutability
 - constant values must be literals
 - array bounds checks
+- unknown user-defined type checks
+- record field checks
+- enumerated type assignment checks
 - arithmetic errors such as division by zero
 - Boolean condition checks for `IF`, `WHILE` and `REPEAT`
 - procedure/function arity checks

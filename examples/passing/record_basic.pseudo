@@ -1,0 +1,19 @@
+TYPE StudentRecord
+   DECLARE LastName : STRING
+   DECLARE FirstName : STRING
+   DECLARE YearGroup : INTEGER
+ENDTYPE
+
+DECLARE Pupil1 : StudentRecord
+DECLARE Pupil2 : StudentRecord
+
+Pupil1.LastName ← "Johnson"
+Pupil1.FirstName ← "Leroy"
+Pupil1.YearGroup ← 6
+
+Pupil2 ← Pupil1
+
+Pupil1.YearGroup ← 7
+
+OUTPUT Pupil2.LastName, ",", Pupil2.FirstName, ",", Pupil2.YearGroup
+OUTPUT Pupil1.LastName, ",", Pupil1.FirstName, ",", Pupil1.YearGroup

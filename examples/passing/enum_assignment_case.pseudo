@@ -1,0 +1,15 @@
+TYPE Season = (Spring, Summer, Autumn, Winter)
+
+DECLARE ThisSeason : Season
+
+ThisSeason ← Summer
+
+CASE OF ThisSeason
+   Spring : OUTPUT "spring"
+   Summer : OUTPUT "summer"
+   Autumn : OUTPUT "autumn"
+   Winter : OUTPUT "winter"
+   OTHERWISE : OUTPUT "unknown"
+ENDCASE
+
+OUTPUT ThisSeason

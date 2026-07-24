@@ -16,6 +16,11 @@ class ArrayType:
     element_type: Any
 
 
+@dataclass(frozen=True)
+class UserTypeRef:
+    name: str
+
+
 @dataclass
 class Program:
     statements: list[Any]
@@ -102,6 +107,26 @@ class ForStmt:
 
 
 @dataclass
+class RecordField:
+    name: str
+    type_spec: Any
+
+
+@dataclass
+class TypeDeclEnum:
+    name: str
+    values: list[str]
+    span: SourceSpan | None = None
+
+
+@dataclass
+class TypeDeclRecord:
+    name: str
+    fields: list[RecordField]
+    span: SourceSpan | None = None
+
+
+@dataclass
 class Param:
     name: str
     type_spec: Any
@@ -150,6 +175,18 @@ class ArrayTarget:
 
 
 @dataclass
+class IndexTarget:
+    array_expr: Any
+    indices: list[Any]
+
+
+@dataclass
+class FieldTarget:
+    record_expr: Any
+    field_name: str
+
+
+@dataclass
 class LiteralExpr:
     value: Any
 
@@ -163,6 +200,12 @@ class VariableExpr:
 class ArrayAccessExpr:
     array_expr: Any
     indices: list[Any]
+
+
+@dataclass
+class FieldAccessExpr:
+    record_expr: Any
+    field_name: str
 
 
 @dataclass
