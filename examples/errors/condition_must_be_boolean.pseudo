@@ -1,0 +1,7 @@
+DECLARE X : INTEGER
+
+X ← 1
+
+IF X THEN
+   OUTPUT "bad"
+ENDIF

@@ -1,2 +1,2 @@
 DECLARE X : INTEGER
-X <- 10
+X <- 1

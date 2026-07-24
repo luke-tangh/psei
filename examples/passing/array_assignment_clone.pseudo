@@ -1,0 +1,12 @@
+DECLARE A : ARRAY[1:2] OF INTEGER
+DECLARE B : ARRAY[1:2] OF INTEGER
+
+A[1] ← 10
+A[2] ← 20
+
+B ← A
+
+A[1] ← 99
+
+OUTPUT B[1], ",", B[2]
+OUTPUT A[1], ",", A[2]

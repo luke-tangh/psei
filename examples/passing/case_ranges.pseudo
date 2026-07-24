@@ -1,0 +1,10 @@
+DECLARE Mark : INTEGER
+
+Mark ← 75
+
+CASE OF Mark
+   0 TO 49 : OUTPUT "Fail"
+   50 TO 69 : OUTPUT "Pass"
+   70 TO 100 : OUTPUT "Distinction"
+   OTHERWISE : OUTPUT "Invalid"
+ENDCASE

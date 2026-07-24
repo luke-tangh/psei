@@ -1,0 +1,3 @@
+DECLARE Grid : ARRAY[1:2,1:2] OF INTEGER
+
+Grid[1] ← 5

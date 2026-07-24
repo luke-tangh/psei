@@ -1,0 +1,24 @@
+DECLARE Number : INTEGER
+DECLARE Attempts : INTEGER
+
+Number ← 28
+Attempts ← 0
+
+WHILE Number > 9
+   Number ← Number - 9
+   Attempts ← Attempts + 1
+ENDWHILE
+
+OUTPUT "Reduced=", Number, " in ", Attempts
+
+REPEAT
+   Number ← Number + 1
+UNTIL Number = 3
+
+OUTPUT "Repeat=", Number
+
+IF Attempts = 3 AND Number = 3 THEN
+   OUTPUT "OK"
+ELSE
+   OUTPUT "Bad"
+ENDIF

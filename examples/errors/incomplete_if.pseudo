@@ -1,2 +1,2 @@
 IF TRUE THEN
-   OUTPUT "yes"
+   OUTPUT "missing ENDIF"

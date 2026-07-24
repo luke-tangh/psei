@@ -1,2 +1,3 @@
-DECLARE X : INTEGER
-X ← "hello"
+DECLARE Count : INTEGER
+
+Count ← "not an integer"

@@ -1,0 +1,11 @@
+DECLARE StartDate : DATE
+DECLARE EndDate : DATE
+
+StartDate ← 02/01/2005
+EndDate ← 03/01/2005
+
+IF StartDate < EndDate THEN
+   OUTPUT "Earlier"
+ENDIF
+
+OUTPUT StartDate

@@ -19,5 +19,42 @@
   {
     "file": "incomplete_if.pseudo",
     "error": "ParseError"
+  },
+  {
+    "file": "division_by_zero.pseudo",
+    "error": "PseudoRuntimeError"
+  },
+  {
+    "file": "for_step_zero.pseudo",
+    "error": "PseudoRuntimeError"
+  },
+  {
+    "file": "wrong_number_of_array_indices.pseudo",
+    "error": "PseudoRuntimeError"
+  },
+  {
+    "file": "char_literal_too_long.pseudo",
+    "error": "LexError"
+  },
+  {
+    "file": "undefined_variable_strict.pseudo",
+    "error": "PseudoRuntimeError",
+    "strict": true
+  },
+  {
+    "file": "condition_must_be_boolean.pseudo",
+    "error": "PseudoRuntimeError"
+  },
+  {
+    "file": "assign_to_constant.pseudo",
+    "error": "PseudoRuntimeError"
+  },
+  {
+    "file": "rand_argument_not_positive.pseudo",
+    "error": "PseudoRuntimeError"
+  },
+  {
+    "file": "mid_start_must_be_one_based.pseudo",
+    "error": "PseudoRuntimeError"
   }
 ]

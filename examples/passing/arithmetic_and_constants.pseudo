@@ -1,0 +1,12 @@
+DECLARE Counter : INTEGER
+DECLARE TotalToPay : REAL
+CONSTANT HourlyRate = 6.50
+
+Counter ← 3
+TotalToPay ← Counter * HourlyRate + 1.0
+
+OUTPUT "Counter=", Counter
+OUTPUT "Total=", TotalToPay
+OUTPUT "Div=", 17 DIV 5
+OUTPUT "Mod=", 17 MOD 5
+OUTPUT "RealDiv=", 7 / 2

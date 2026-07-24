@@ -1,2 +1,3 @@
 DECLARE Values : ARRAY[1:3] OF INTEGER
+
 Values[4] ← 10
