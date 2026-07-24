@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from .interpreter import Interpreter
 from .lexer import Lexer
 from .parser import Parser
-from .runtime import Runtime
+from .runtime import LocalFileSystem, Runtime
 
 
 def run_source(
@@ -26,8 +28,13 @@ def run_source(
 
 
 def run_file(path: str, *, strict: bool = False):
-    with open(path, "r", encoding="utf-8") as f:
+    program_path = Path(path)
+
+    with program_path.open("r", encoding="utf-8") as f:
         source = f.read()
 
-    runtime = Runtime(strict=strict)
+    runtime = Runtime(
+        strict=strict,
+        file_system=LocalFileSystem(program_path.resolve().parent),
+    )
     run_source(source, runtime, strict=strict)

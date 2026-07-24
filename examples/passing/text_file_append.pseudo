@@ -1,0 +1,18 @@
+DECLARE LineOfText : STRING
+
+OPENFILE "Log.txt" FOR WRITE
+WRITEFILE "Log.txt", "A"
+CLOSEFILE "Log.txt"
+
+OPENFILE "Log.txt" FOR APPEND
+WRITEFILE "Log.txt", "B"
+CLOSEFILE "Log.txt"
+
+OPENFILE "Log.txt" FOR READ
+
+WHILE NOT EOF("Log.txt")
+   READFILE "Log.txt", LineOfText
+   OUTPUT LineOfText
+ENDWHILE
+
+CLOSEFILE "Log.txt"

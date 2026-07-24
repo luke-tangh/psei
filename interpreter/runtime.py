@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import copy
 import itertools
+import pickle
 import random
 from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from .ast_nodes import ArrayType, UserTypeRef
@@ -163,6 +165,216 @@ class ArrayValue:
     def set(self, indices: list[int], value: Any):
         key = self.validate_indices(indices)
         self.data[key] = coerce_value(value, self.type_spec.element_type)
+
+
+@dataclass
+class FileHandle:
+    file_id: str
+    mode: str
+    text_pointer: int = 0
+    random_pointer: int = 0
+
+
+class InMemoryFileSystem:
+    """
+    Small deterministic file-system abstraction used by run_source() by default.
+
+    Text files are stored as lists of lines. Random files are stored as a mapping
+    from integer address to a deep-copied runtime value.
+    """
+
+    def __init__(self):
+        self.text_files: dict[str, list[str]] = {}
+        self.random_files: dict[str, dict[int, Any]] = {}
+        self.open_files: dict[str, FileHandle] = {}
+
+    def _normalise(self, file_id: str) -> str:
+        return str(file_id)
+
+    def _handle(self, file_id: str) -> FileHandle:
+        key = self._normalise(file_id)
+
+        if key not in self.open_files:
+            raise PseudoRuntimeError(f"File {file_id!r} is not open")
+
+        return self.open_files[key]
+
+    def _require_mode(self, file_id: str, allowed: set[str]) -> FileHandle:
+        handle = self._handle(file_id)
+
+        if handle.mode not in allowed:
+            modes = ", ".join(sorted(allowed))
+            raise PseudoRuntimeError(
+                f"File {file_id!r} is open for {handle.mode}, "
+                f"expected one of {modes}"
+            )
+
+        return handle
+
+    def open_file(self, file_id: str, mode: str):
+        key = self._normalise(file_id)
+
+        if key in self.open_files:
+            raise PseudoRuntimeError(f"File {file_id!r} is already open")
+
+        if mode == T.READ:
+            if key not in self.text_files:
+                raise PseudoRuntimeError(f"Text file {file_id!r} does not exist")
+
+        elif mode == T.WRITE:
+            self.text_files[key] = []
+
+        elif mode == T.APPEND:
+            self.text_files.setdefault(key, [])
+
+        elif mode == T.RANDOM:
+            self.random_files.setdefault(key, {})
+
+        else:
+            raise PseudoRuntimeError(f"Unsupported file mode {mode!r}")
+
+        self.open_files[key] = FileHandle(file_id=key, mode=mode)
+
+    def close_file(self, file_id: str):
+        key = self._normalise(file_id)
+
+        if key not in self.open_files:
+            raise PseudoRuntimeError(f"File {file_id!r} is not open")
+
+        del self.open_files[key]
+
+    def read_file(self, file_id: str) -> str:
+        handle = self._require_mode(file_id, {T.READ})
+        lines = self.text_files[handle.file_id]
+
+        if handle.text_pointer >= len(lines):
+            raise PseudoRuntimeError(f"Cannot READFILE past EOF for {file_id!r}")
+
+        line = lines[handle.text_pointer]
+        handle.text_pointer += 1
+        return line
+
+    def write_file(self, file_id: str, data: str):
+        handle = self._require_mode(file_id, {T.WRITE, T.APPEND})
+        self.text_files[handle.file_id].append(str(data))
+
+    def eof(self, file_id: str) -> bool:
+        handle = self._require_mode(file_id, {T.READ})
+        return handle.text_pointer >= len(self.text_files[handle.file_id])
+
+    def seek(self, file_id: str, address: int):
+        handle = self._require_mode(file_id, {T.RANDOM})
+
+        if address < 0:
+            raise PseudoRuntimeError("Random file address cannot be negative")
+
+        handle.random_pointer = address
+
+    def get_record(self, file_id: str) -> Any:
+        handle = self._require_mode(file_id, {T.RANDOM})
+        records = self.random_files[handle.file_id]
+        address = handle.random_pointer
+
+        if address not in records:
+            raise PseudoRuntimeError(
+                f"No record exists at address {address} in {file_id!r}"
+            )
+
+        return copy.deepcopy(records[address])
+
+    def put_record(self, file_id: str, value: Any):
+        handle = self._require_mode(file_id, {T.RANDOM})
+        self.random_files[handle.file_id][handle.random_pointer] = copy.deepcopy(value)
+
+
+class LocalFileSystem(InMemoryFileSystem):
+    """
+    File-system abstraction used by run_file().
+
+    Text files are written as UTF-8 text. Random files are persisted with pickle,
+    which is a pragmatic interpreter implementation detail rather than a
+    Cambridge pseudocode concept.
+    """
+
+    def __init__(self, base_dir: str | Path | None = None):
+        super().__init__()
+        self.base_dir = Path.cwd() if base_dir is None else Path(base_dir)
+
+    def _path(self, file_id: str) -> Path:
+        path = Path(str(file_id))
+
+        if not path.is_absolute():
+            path = self.base_dir / path
+
+        return path
+
+    def _normalise(self, file_id: str) -> str:
+        return str(self._path(file_id).resolve())
+
+    def open_file(self, file_id: str, mode: str):
+        key = self._normalise(file_id)
+        path = Path(key)
+
+        if key in self.open_files:
+            raise PseudoRuntimeError(f"File {file_id!r} is already open")
+
+        if mode == T.READ:
+            if not path.exists():
+                raise PseudoRuntimeError(f"Text file {file_id!r} does not exist")
+
+            self.text_files[key] = path.read_text(encoding="utf-8").splitlines()
+
+        elif mode == T.WRITE:
+            self.text_files[key] = []
+
+        elif mode == T.APPEND:
+            if path.exists():
+                self.text_files[key] = path.read_text(encoding="utf-8").splitlines()
+            else:
+                self.text_files[key] = []
+
+        elif mode == T.RANDOM:
+            if path.exists():
+                with path.open("rb") as f:
+                    data = pickle.load(f)
+
+                if not isinstance(data, dict):
+                    raise PseudoRuntimeError(
+                        f"Random file {file_id!r} does not contain record data"
+                    )
+
+                self.random_files[key] = data
+            else:
+                self.random_files[key] = {}
+
+        else:
+            raise PseudoRuntimeError(f"Unsupported file mode {mode!r}")
+
+        self.open_files[key] = FileHandle(file_id=key, mode=mode)
+
+    def close_file(self, file_id: str):
+        handle = self._handle(file_id)
+        key = handle.file_id
+        path = Path(key)
+
+        if handle.mode in {T.WRITE, T.APPEND}:
+            path.parent.mkdir(parents=True, exist_ok=True)
+
+            lines = self.text_files.get(key, [])
+            text = "\n".join(lines)
+
+            if lines:
+                text += "\n"
+
+            path.write_text(text, encoding="utf-8", newline="\n")
+
+        elif handle.mode == T.RANDOM:
+            path.parent.mkdir(parents=True, exist_ok=True)
+
+            with path.open("wb") as f:
+                pickle.dump(self.random_files.get(key, {}), f)
+
+        super().close_file(file_id)
 
 
 @dataclass
@@ -364,6 +576,7 @@ class Runtime:
         input_provider: Callable[[], str] | None = None,
         output_writer: Callable[[str], Any] | None = None,
         rng: random.Random | None = None,
+        file_system: InMemoryFileSystem | None = None,
     ):
         self.strict = strict
         self.global_env = Environment(strict=strict, name="global")
@@ -374,6 +587,8 @@ class Runtime:
 
         self.procedures: dict[str, Any] = {}
         self.functions: dict[str, Any] = {}
+
+        self.file_system = file_system if file_system is not None else InMemoryFileSystem()
 
         self.input_provider = input_provider if input_provider is not None else input
         self.output_writer = output_writer if output_writer is not None else print
@@ -734,7 +949,7 @@ def coerce_value(value: Any, type_spec: Any) -> Any:
                 f"to {type_to_str(type_spec)}"
             )
 
-        return value
+        return EnumValue(type_spec, value.name, value.ordinal)
 
     if isinstance(type_spec, RecordType):
         if not isinstance(value, RecordValue):
@@ -749,7 +964,7 @@ def coerce_value(value: Any, type_spec: Any) -> Any:
                 f"to {type_to_str(type_spec)}"
             )
 
-        return value.clone()
+        return RecordValue(type_spec, copy.deepcopy(value.fields))
 
     t = type_to_str(type_spec)
 

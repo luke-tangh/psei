@@ -1,0 +1,26 @@
+TYPE StudentRecord
+   DECLARE LastName : STRING
+   DECLARE YearGroup : INTEGER
+ENDTYPE
+
+DECLARE Pupil : StudentRecord
+DECLARE LoadedPupil : StudentRecord
+
+Pupil.LastName ← "Johnson"
+Pupil.YearGroup ← 6
+
+OPENFILE "StudentFile.Dat" FOR RANDOM
+
+SEEK "StudentFile.Dat", 10
+PUTRECORD "StudentFile.Dat", Pupil
+
+Pupil.LastName ← "Changed"
+Pupil.YearGroup ← 99
+
+SEEK "StudentFile.Dat", 10
+GETRECORD "StudentFile.Dat", LoadedPupil
+
+CLOSEFILE "StudentFile.Dat"
+
+OUTPUT LoadedPupil.LastName, ":", LoadedPupil.YearGroup
+OUTPUT Pupil.LastName, ":", Pupil.YearGroup

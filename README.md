@@ -29,6 +29,19 @@ Supported:
   - arrays of records
 - `INPUT`
 - `OUTPUT`
+- text file handling:
+  - `OPENFILE ... FOR READ`
+  - `OPENFILE ... FOR WRITE`
+  - `OPENFILE ... FOR APPEND`
+  - `READFILE`
+  - `WRITEFILE`
+  - `CLOSEFILE`
+  - `EOF(...)`
+- random file handling:
+  - `OPENFILE ... FOR RANDOM`
+  - `SEEK`
+  - `GETRECORD`
+  - `PUTRECORD`
 - arithmetic:
   - `+`
   - `-`
@@ -65,6 +78,7 @@ Supported:
   - `RETURN`
   - function calls inside expressions
 - built-in functions:
+  - `EOF`
   - `RIGHT`
   - `MID`
   - `LENGTH`
@@ -77,8 +91,45 @@ Not implemented yet:
 
 - sets
 - pointers
-- file handling
 - object-oriented pseudocode
+
+## File handling notes
+
+`run_source()` uses an in-memory file system by default. This keeps tests and
+REPL-style execution deterministic and avoids writing temporary files to the
+project directory.
+
+`run_file()` uses a local file system rooted at the directory containing the
+pseudocode source file, so relative file names are resolved beside the program
+being run.
+
+Text file example:
+
+```text
+DECLARE LineOfText : STRING
+
+OPENFILE "FileA.txt" FOR READ
+WHILE NOT EOF("FileA.txt")
+   READFILE "FileA.txt", LineOfText
+   OUTPUT LineOfText
+ENDWHILE
+CLOSEFILE "FileA.txt"
+```
+
+Random file example:
+
+```text
+OPENFILE "StudentFile.Dat" FOR RANDOM
+SEEK "StudentFile.Dat", 10
+PUTRECORD "StudentFile.Dat", Pupil
+SEEK "StudentFile.Dat", 10
+GETRECORD "StudentFile.Dat", LoadedPupil
+CLOSEFILE "StudentFile.Dat"
+```
+
+Random files store runtime values at integer addresses. With the local file
+system implementation, random files are persisted using Python pickle. That is
+an interpreter implementation detail, not part of Cambridge pseudocode.
 
 ## User-defined type notes
 
@@ -178,6 +229,9 @@ Both modes still perform core runtime checks, including:
 - unknown user-defined type checks
 - record field checks
 - enumerated type assignment checks
+- file mode checks
+- text file EOF checks
+- random file address checks
 - arithmetic errors such as division by zero
 - Boolean condition checks for `IF`, `WHILE` and `REPEAT`
 - procedure/function arity checks

@@ -60,6 +60,54 @@ class OutputStmt:
 
 
 @dataclass
+class OpenFileStmt:
+    file_expr: Any
+    mode: str
+    span: SourceSpan | None = None
+
+
+@dataclass
+class ReadFileStmt:
+    file_expr: Any
+    target: Any
+    span: SourceSpan | None = None
+
+
+@dataclass
+class WriteFileStmt:
+    file_expr: Any
+    data_expr: Any
+    span: SourceSpan | None = None
+
+
+@dataclass
+class CloseFileStmt:
+    file_expr: Any
+    span: SourceSpan | None = None
+
+
+@dataclass
+class SeekStmt:
+    file_expr: Any
+    address_expr: Any
+    span: SourceSpan | None = None
+
+
+@dataclass
+class GetRecordStmt:
+    file_expr: Any
+    target: Any
+    span: SourceSpan | None = None
+
+
+@dataclass
+class PutRecordStmt:
+    file_expr: Any
+    value_expr: Any
+    span: SourceSpan | None = None
+
+
+@dataclass
 class IfStmt:
     condition: Any
     then_body: list[Any]

@@ -12,27 +12,34 @@ from .ast_nodes import (
     CallExpr,
     CallStmt,
     CaseStmt,
+    CloseFileStmt,
     ConstantStmt,
     DeclareStmt,
     FieldAccessExpr,
     FieldTarget,
     ForStmt,
     FunctionDecl,
+    GetRecordStmt,
     IfStmt,
     IndexTarget,
     InputStmt,
     LiteralExpr,
+    OpenFileStmt,
     OutputStmt,
     ProcedureDecl,
     Program,
+    PutRecordStmt,
+    ReadFileStmt,
     RepeatStmt,
     ReturnStmt,
+    SeekStmt,
     TypeDeclEnum,
     TypeDeclRecord,
     UnaryExpr,
     VariableExpr,
     VarTarget,
     WhileStmt,
+    WriteFileStmt,
 )
 from .errors import PseudoRuntimeError
 from .runtime import (
@@ -158,6 +165,53 @@ class Interpreter:
             self.runtime.output_writer("".join(values))
             return
 
+        if isinstance(stmt, OpenFileStmt):
+            file_id = self.eval_file_identifier(stmt.file_expr)
+            self.runtime.file_system.open_file(file_id, stmt.mode)
+            return
+
+        if isinstance(stmt, ReadFileStmt):
+            file_id = self.eval_file_identifier(stmt.file_expr)
+            type_spec = self.target_type(stmt.target)
+
+            if not same_type(type_spec, T.STRING):
+                raise PseudoRuntimeError(
+                    f"READFILE target must be STRING, got {type_to_str(type_spec)}"
+                )
+
+            line = self.runtime.file_system.read_file(file_id)
+            self.assign_target(stmt.target, line)
+            return
+
+        if isinstance(stmt, WriteFileStmt):
+            file_id = self.eval_file_identifier(stmt.file_expr)
+            data = output_value(self.eval(stmt.data_expr))
+            self.runtime.file_system.write_file(file_id, data)
+            return
+
+        if isinstance(stmt, CloseFileStmt):
+            file_id = self.eval_file_identifier(stmt.file_expr)
+            self.runtime.file_system.close_file(file_id)
+            return
+
+        if isinstance(stmt, SeekStmt):
+            file_id = self.eval_file_identifier(stmt.file_expr)
+            address = self.require_int(self.eval(stmt.address_expr))
+            self.runtime.file_system.seek(file_id, address)
+            return
+
+        if isinstance(stmt, GetRecordStmt):
+            file_id = self.eval_file_identifier(stmt.file_expr)
+            value = self.runtime.file_system.get_record(file_id)
+            self.assign_target(stmt.target, value)
+            return
+
+        if isinstance(stmt, PutRecordStmt):
+            file_id = self.eval_file_identifier(stmt.file_expr)
+            value = self.eval(stmt.value_expr)
+            self.runtime.file_system.put_record(file_id, value)
+            return
+
         if isinstance(stmt, IfStmt):
             condition = self.require_bool(self.eval(stmt.condition))
 
@@ -208,6 +262,9 @@ class Interpreter:
             raise ReturnSignal(value, stmt.span)
 
         raise PseudoRuntimeError(f"Unknown statement type: {stmt!r}")
+
+    def eval_file_identifier(self, expr: Any) -> str:
+        return self.require_string(self.eval(expr))
 
     def execute_case(self, stmt: CaseStmt):
         selector = self.eval(stmt.selector)
@@ -680,6 +737,11 @@ class Interpreter:
 
     def call_builtin(self, name: str, args: list[Any]) -> Any:
         upper = name.upper()
+
+        if upper == "EOF":
+            self.require_arg_count(upper, args, 1)
+            file_id = self.require_string(args[0])
+            return self.runtime.file_system.eof(file_id)
 
         if upper == "LENGTH":
             self.require_arg_count(upper, args, 1)

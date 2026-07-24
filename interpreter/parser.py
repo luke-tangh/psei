@@ -10,23 +10,29 @@ from .ast_nodes import (
     CallStmt,
     CaseClause,
     CaseStmt,
+    CloseFileStmt,
     ConstantStmt,
     DeclareStmt,
     FieldAccessExpr,
     FieldTarget,
     ForStmt,
     FunctionDecl,
+    GetRecordStmt,
     IfStmt,
     IndexTarget,
     InputStmt,
     LiteralExpr,
+    OpenFileStmt,
     OutputStmt,
     Param,
     ProcedureDecl,
     Program,
+    PutRecordStmt,
+    ReadFileStmt,
     RecordField,
     RepeatStmt,
     ReturnStmt,
+    SeekStmt,
     SourceSpan,
     TypeDeclEnum,
     TypeDeclRecord,
@@ -35,6 +41,7 @@ from .ast_nodes import (
     VariableExpr,
     VarTarget,
     WhileStmt,
+    WriteFileStmt,
 )
 from .errors import IncompleteInput, ParseError
 from .tokens import T, Token
@@ -48,6 +55,13 @@ class Parser:
         T.STRING,
         T.BOOLEAN,
         T.DATE,
+    }
+
+    FILE_MODE_TOKENS = {
+        T.READ,
+        T.WRITE,
+        T.APPEND,
+        T.RANDOM,
     }
 
     BLOCK_TERMINATORS = {
@@ -159,6 +173,46 @@ class Parser:
 
             return self.with_span(OutputStmt(exprs), start_tok)
 
+        if self.match(T.OPENFILE):
+            file_expr = self.parse_expression()
+            self.consume(T.FOR, "Expected FOR in OPENFILE statement")
+            mode = self.parse_file_mode()
+            return self.with_span(OpenFileStmt(file_expr, mode), start_tok)
+
+        if self.match(T.READFILE):
+            file_expr = self.parse_expression()
+            self.consume(T.COMMA, "Expected ',' after READFILE file identifier")
+            target = self.parse_lvalue()
+            return self.with_span(ReadFileStmt(file_expr, target), start_tok)
+
+        if self.match(T.WRITEFILE):
+            file_expr = self.parse_expression()
+            self.consume(T.COMMA, "Expected ',' after WRITEFILE file identifier")
+            data_expr = self.parse_expression()
+            return self.with_span(WriteFileStmt(file_expr, data_expr), start_tok)
+
+        if self.match(T.CLOSEFILE):
+            file_expr = self.parse_expression()
+            return self.with_span(CloseFileStmt(file_expr), start_tok)
+
+        if self.match(T.SEEK):
+            file_expr = self.parse_expression()
+            self.consume(T.COMMA, "Expected ',' after SEEK file identifier")
+            address_expr = self.parse_expression()
+            return self.with_span(SeekStmt(file_expr, address_expr), start_tok)
+
+        if self.match(T.GETRECORD):
+            file_expr = self.parse_expression()
+            self.consume(T.COMMA, "Expected ',' after GETRECORD file identifier")
+            target = self.parse_lvalue()
+            return self.with_span(GetRecordStmt(file_expr, target), start_tok)
+
+        if self.match(T.PUTRECORD):
+            file_expr = self.parse_expression()
+            self.consume(T.COMMA, "Expected ',' after PUTRECORD file identifier")
+            value_expr = self.parse_expression()
+            return self.with_span(PutRecordStmt(file_expr, value_expr), start_tok)
+
         if self.match(T.IF):
             condition = self.parse_expression()
             self.consume(T.THEN, "Expected THEN after IF condition")
@@ -265,6 +319,13 @@ class Parser:
         self.consume(T.EQUAL, "Expected '=' after constant name")
         expr = self.parse_literal_only()
         return ConstantStmt(name, expr)
+
+    def parse_file_mode(self) -> str:
+        if self.check_any(self.FILE_MODE_TOKENS):
+            return self.advance().type
+
+        tok = self.peek()
+        raise self.err(tok, "Expected file mode READ, WRITE, APPEND or RANDOM")
 
     def parse_type_decl(self):
         name = self.consume(T.IDENT, "Expected type name after TYPE").lexeme
