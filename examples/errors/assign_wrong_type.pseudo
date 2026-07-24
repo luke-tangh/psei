@@ -1,0 +1,2 @@
+DECLARE X : INTEGER
+X ← "hello"

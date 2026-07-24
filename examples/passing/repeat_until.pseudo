@@ -1,0 +1,8 @@
+DECLARE Number : INTEGER
+Number ← 0
+
+REPEAT
+   Number ← Number + 1
+UNTIL Number = 3
+
+OUTPUT Number

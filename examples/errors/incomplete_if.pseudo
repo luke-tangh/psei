@@ -1,0 +1,2 @@
+IF TRUE THEN
+   OUTPUT "yes"

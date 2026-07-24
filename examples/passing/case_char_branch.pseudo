@@ -1,0 +1,13 @@
+DECLARE Move : CHAR
+DECLARE Position : INTEGER
+
+Move ← 'W'
+Position ← 50
+
+CASE OF Move
+   'W' : Position ← Position - 10
+   'S' : Position ← Position + 10
+   OTHERWISE : Position ← -1
+ENDCASE
+
+OUTPUT Position

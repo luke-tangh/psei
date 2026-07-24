@@ -1,0 +1,8 @@
+DECLARE Number : INTEGER
+Number ← 27
+
+WHILE Number > 9
+   Number ← Number - 9
+ENDWHILE
+
+OUTPUT Number

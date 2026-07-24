@@ -1,0 +1,16 @@
+DECLARE N : INTEGER
+DECLARE Total : INTEGER
+
+N ← 1
+Total ← 0
+
+CASE OF N
+   1 :
+      Total ← Total + 10
+      Total ← Total + 5
+      OUTPUT Total
+   2 :
+      OUTPUT "two"
+   OTHERWISE :
+      OUTPUT "other"
+ENDCASE

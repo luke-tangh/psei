@@ -1,0 +1,8 @@
+DECLARE Score : INTEGER
+Score ← 99
+
+CASE OF Score
+   1 TO 10 : OUTPUT "low"
+   11 TO 20 : OUTPUT "medium"
+   OTHERWISE : OUTPUT "other"
+ENDCASE

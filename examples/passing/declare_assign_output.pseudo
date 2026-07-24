@@ -1,0 +1,4 @@
+DECLARE Counter : INTEGER
+Counter ← 0
+Counter ← Counter + 1
+OUTPUT Counter

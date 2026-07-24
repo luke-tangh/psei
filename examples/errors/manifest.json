@@ -1,0 +1,23 @@
+[
+  {
+    "file": "strict_ascii_assignment.pseudo",
+    "error": "LexError",
+    "strict": true
+  },
+  {
+    "file": "array_index_out_of_bounds.pseudo",
+    "error": "PseudoRuntimeError"
+  },
+  {
+    "file": "assign_wrong_type.pseudo",
+    "error": "PseudoRuntimeError"
+  },
+  {
+    "file": "constant_requires_literal.pseudo",
+    "error": "ParseError"
+  },
+  {
+    "file": "incomplete_if.pseudo",
+    "error": "ParseError"
+  }
+]

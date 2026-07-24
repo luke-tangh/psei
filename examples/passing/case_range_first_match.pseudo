@@ -1,0 +1,8 @@
+DECLARE Score : INTEGER
+Score ← 7
+
+CASE OF Score
+   1 TO 10 : OUTPUT "low"
+   7 : OUTPUT "exact"
+   OTHERWISE : OUTPUT "other"
+ENDCASE
