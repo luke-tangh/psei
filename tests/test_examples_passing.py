@@ -1,37 +1,14 @@
 from pathlib import Path
 
-import importlib
 import pytest
+import psei.runner as runner
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 PASSING_EXAMPLES_DIR = PROJECT_ROOT / "examples" / "passing"
 
 
-def import_run_source():
-    """
-    Support both possible source package names:
-
-    - interpreter
-    - pseudo_interpreter
-    """
-    errors = []
-
-    for package_name in ("interpreter", "pseudo_interpreter"):
-        try:
-            module = importlib.import_module(f"{package_name}.runner")
-            return module.run_source
-        except ModuleNotFoundError as e:
-            errors.append(f"{package_name}: {e}")
-
-    raise ImportError(
-        "Could not import run_source from interpreter.runner "
-        "or pseudo_interpreter.runner. Tried:\n"
-        + "\n".join(errors)
-    )
-
-
-run_source = import_run_source()
+run_source = runner.run_source
 
 
 def normalise_output(text: str) -> str:

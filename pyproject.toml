@@ -9,7 +9,8 @@ description = "Minimal Cambridge-style pseudocode interpreter"
 requires-python = ">=3.10"
 
 [project.scripts]
-pseudo = "interpreter.cli:main"
+pseudo = "psei.cli:main"
+psei = "psei.cli:main"
 
 [project.optional-dependencies]
 dev = [
@@ -17,8 +18,9 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["interpreter*"]
+where = ["src"]
+include = ["psei*"]
 
 [tool.pytest.ini_options]
-pythonpath = ["."]
+pythonpath = ["src"]
 testpaths = ["tests"]
