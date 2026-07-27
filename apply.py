@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path.cwd()
 
-if not (ROOT / "interpreter").is_dir():
+if not (ROOT / "src" / "psei").is_dir():
     raise SystemExit("Run this script from the repository root.")
 
 

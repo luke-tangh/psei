@@ -86,12 +86,18 @@ Supported:
   - `UCASE`
   - `INT`
   - `RAND`
+- object-oriented subset:
+  - `CLASS ... ENDCLASS`
+  - `INHERITS`
+  - constructors as `PROCEDURE NEW(...)`
+  - object creation with `NEW ClassName(...)`
+  - method calls using dot notation
+  - superclass calls using `SUPER.MethodName(...)`
 
 Not implemented yet:
 
 - sets
 - pointers
-- object-oriented pseudocode
 
 ## File handling notes
 
@@ -128,8 +134,9 @@ CLOSEFILE "StudentFile.Dat"
 ```
 
 Random files store runtime values at integer addresses. With the local file
-system implementation, random files are persisted using Python pickle. That is
-an interpreter implementation detail, not part of Cambridge pseudocode.
+system implementation, random files are persisted as JSON using the
+interpreter's explicit runtime-value serializer. Object instances are not
+persisted in random files; store scalar values, arrays or records instead.
 
 ## User-defined type notes
 
@@ -241,7 +248,9 @@ Both modes still perform core runtime checks, including:
 Run with strict mode:
 
 ```bash
-python -m interpreter run path/to/program.pseudo --strict
+pseudo run path/to/program.pseudo --strict
+# or
+python -m psei run path/to/program.pseudo --strict
 ```
 
 ## Development
@@ -254,7 +263,7 @@ python -m pytest -q
 
 ## Object-oriented pseudocode notes
 
-Phase 4 adds a practical subset of Cambridge-style object-oriented pseudocode:
+The interpreter includes a practical subset of Cambridge-style object-oriented pseudocode:
 
 ```text
 CLASS Pet
@@ -286,6 +295,10 @@ MyCat ← NEW Cat("Kitty", "Shorthaired")
 OUTPUT MyCat.GetName()
 OUTPUT MyCat.GetBreed()
 ```
+
+A declared class variable is an object reference. `DECLARE P : Player` creates a
+`NULL`/uninitialised reference; use `P ← NEW Player(...)` before accessing
+properties or methods.
 
 Supported OOP features:
 

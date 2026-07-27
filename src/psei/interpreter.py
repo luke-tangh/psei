@@ -50,6 +50,7 @@ from .errors import PseudoRuntimeError
 from .runtime import (
     ArrayValue,
     EnumValue,
+    NullObjectValue,
     ObjectValue,
     RecordValue,
     Reference,
@@ -306,16 +307,16 @@ class Interpreter:
 
             return obj
 
-        value, kind = self.call_method(
+        if constructor.kind != T.PROCEDURE:
+            raise PseudoRuntimeError("Constructor NEW must be a PROCEDURE")
+
+        self.call_method(
             obj,
             "NEW",
             arg_exprs,
             start_class=class_type,
             context=f"CONSTRUCTOR {class_name}.NEW",
         )
-
-        if kind != T.PROCEDURE:
-            raise PseudoRuntimeError("Constructor NEW must be a PROCEDURE")
 
         return obj
 
@@ -395,23 +396,36 @@ class Interpreter:
             obj = target
             start_class = obj.type_spec
 
+        elif isinstance(target, NullObjectValue):
+            raise PseudoRuntimeError(
+                f"Object reference of type {target.type_spec.name!r} "
+                "is not initialised"
+            )
+
         else:
             raise PseudoRuntimeError(
                 f"Method call target must be an object, got {runtime_type_name(target)}"
             )
 
-        value, kind = self.call_method(
+        method, _owner_class = start_class.find_method(expr.method_name)
+
+        if method is None:
+            raise PseudoRuntimeError(
+                f"CLASS {start_class.name!r} has no method {expr.method_name!r}"
+            )
+
+        if method.kind == T.PROCEDURE and expression_context:
+            raise PseudoRuntimeError(
+                f"PROCEDURE method {expr.method_name!r} cannot be used as a FUNCTION"
+            )
+
+        value, _kind = self.call_method(
             obj,
             expr.method_name,
             expr.args,
             start_class=start_class,
             context=f"METHOD {start_class.name}.{expr.method_name}",
         )
-
-        if kind == T.PROCEDURE and expression_context:
-            raise PseudoRuntimeError(
-                f"PROCEDURE method {expr.method_name!r} cannot be used as a FUNCTION"
-            )
 
         return value
 
@@ -493,7 +507,7 @@ class Interpreter:
 
     def case_matches(self, selector: Any, start: Any, end: Any | None) -> bool:
         if end is None:
-            return selector == start
+            return self.equal_values(selector, start)
 
         return (
             self.compare_values(start, T.LESS_EQUAL, selector)
@@ -681,6 +695,12 @@ class Interpreter:
                     description="object property",
                 )
 
+            if isinstance(holder, NullObjectValue):
+                raise PseudoRuntimeError(
+                    f"Object reference of type {holder.type_spec.name!r} "
+                    "is not initialised"
+                )
+
             raise PseudoRuntimeError(
                 "BYREF field argument is not a record or object"
             )
@@ -731,6 +751,12 @@ class Interpreter:
                 holder.set(target.field_name, value)
                 return
 
+            if isinstance(holder, NullObjectValue):
+                raise PseudoRuntimeError(
+                    f"Object reference of type {holder.type_spec.name!r} "
+                    "is not initialised"
+                )
+
             raise PseudoRuntimeError(
                 "Field assignment target is not a record or object"
             )
@@ -771,6 +797,12 @@ class Interpreter:
 
             if isinstance(holder, ObjectValue):
                 return holder.field_type(target.field_name)
+
+            if isinstance(holder, NullObjectValue):
+                raise PseudoRuntimeError(
+                    f"Object reference of type {holder.type_spec.name!r} "
+                    "is not initialised"
+                )
 
             raise PseudoRuntimeError("Field target is not a record or object")
 
@@ -816,6 +848,12 @@ class Interpreter:
 
             if isinstance(holder, ObjectValue):
                 return holder.get(expr.field_name)
+
+            if isinstance(holder, NullObjectValue):
+                raise PseudoRuntimeError(
+                    f"Object reference of type {holder.type_spec.name!r} "
+                    "is not initialised"
+                )
 
             raise PseudoRuntimeError("Field access target is not a record or object")
 
@@ -925,10 +963,10 @@ class Interpreter:
             return str(left) + str(right)
 
         if t == T.EQUAL:
-            return left == right
+            return self.equal_values(left, right)
 
         if t == T.NOT_EQUAL:
-            return left != right
+            return not self.equal_values(left, right)
 
         if t in {
             T.LESS,
@@ -946,12 +984,75 @@ class Interpreter:
 
         raise PseudoRuntimeError(f"Unknown binary operator {op.lexeme!r}")
 
+    def equal_values(self, left: Any, right: Any) -> bool:
+        if self.is_number(left) and self.is_number(right):
+            return left == right
+
+        if type(left) is bool and type(right) is bool:
+            return left == right
+
+        if isinstance(left, Char) and isinstance(right, Char):
+            return str(left) == str(right)
+
+        if type(left) is str and type(right) is str:
+            return left == right
+
+        if isinstance(left, DateValue) and isinstance(right, DateValue):
+            return left.key() == right.key()
+
+        if isinstance(left, EnumValue) and isinstance(right, EnumValue):
+            if not same_type(left.type_spec, right.type_spec):
+                raise PseudoRuntimeError(
+                    f"Cannot compare {runtime_type_name(left)} "
+                    f"with {runtime_type_name(right)}"
+                )
+
+            return left.ordinal == right.ordinal
+
+        if isinstance(left, NullObjectValue) and isinstance(right, NullObjectValue):
+            if not same_type(left.type_spec, right.type_spec):
+                raise PseudoRuntimeError(
+                    f"Cannot compare {runtime_type_name(left)} "
+                    f"with {runtime_type_name(right)}"
+                )
+
+            return True
+
+        if isinstance(left, ObjectValue) and isinstance(right, ObjectValue):
+            if not same_type(left.type_spec, right.type_spec):
+                raise PseudoRuntimeError(
+                    f"Cannot compare {runtime_type_name(left)} "
+                    f"with {runtime_type_name(right)}"
+                )
+
+            return left is right
+
+        if isinstance(left, (NullObjectValue, ObjectValue)) and isinstance(
+            right,
+            (NullObjectValue, ObjectValue),
+        ):
+            if not same_type(left.type_spec, right.type_spec):
+                raise PseudoRuntimeError(
+                    f"Cannot compare {runtime_type_name(left)} "
+                    f"with {runtime_type_name(right)}"
+                )
+
+            return False
+
+        raise PseudoRuntimeError(
+            f"Cannot compare {runtime_type_name(left)} "
+            f"with {runtime_type_name(right)}"
+        )
+
     def compare_values(self, left: Any, op_type: str, right: Any) -> bool:
         if self.is_number(left) and self.is_number(right):
             a, b = left, right
 
-        elif isinstance(left, str) and isinstance(right, str):
+        elif isinstance(left, Char) and isinstance(right, Char):
             a, b = str(left), str(right)
+
+        elif type(left) is str and type(right) is str:
+            a, b = left, right
 
         elif isinstance(left, DateValue) and isinstance(right, DateValue):
             a, b = left.key(), right.key()

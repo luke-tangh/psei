@@ -1,8 +1,8 @@
 import pytest
 
-from src.psei.errors import ParseError, PseudoRuntimeError
-from src.psei.runner import run_source
-from src.psei.runtime import Runtime
+from psei.errors import ParseError, PseudoRuntimeError
+from psei.runner import run_source
+from psei.runtime import Runtime
 
 
 def run_capture(source: str, *, strict: bool = False):

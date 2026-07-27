@@ -1,9 +1,9 @@
 import pytest
 
-from src.psei.errors import PseudoRuntimeError
-from src.psei.lexer import Lexer
-from src.psei.runtime import Runtime
-from src.psei.tokens import T
+from psei.errors import PseudoRuntimeError
+from psei.lexer import Lexer
+from psei.runtime import Runtime
+from psei.tokens import T
 
 
 def test_byval_byref_are_keywords():

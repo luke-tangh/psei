@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import copy
 import itertools
-import pickle
+import json
 import random
 from collections.abc import Callable
 from contextlib import contextmanager
@@ -10,10 +10,10 @@ from dataclasses import dataclass, field as dc_field
 from pathlib import Path
 from typing import Any
 
-from .ast_nodes import ArrayType, UserTypeRef
+from .ast_nodes import ArrayType, ClassFieldDecl, UserTypeRef
 from .errors import PseudoRuntimeError
 from .tokens import T
-from .values import Char, DateValue
+from .values import Char, DateValue, make_date
 
 
 BASIC_TYPES = {
@@ -95,12 +95,18 @@ class RecordValue:
         fields = {}
 
         for key, field in type_spec.fields.items():
-            fields[key] = copy.deepcopy(default_value(field.type_spec))
+            fields[key] = clone_value(default_value(field.type_spec))
 
         return cls(type_spec, fields)
 
     def clone(self) -> RecordValue:
-        return RecordValue(self.type_spec, copy.deepcopy(self.fields))
+        return RecordValue(
+            self.type_spec,
+            {
+                key: clone_value(value)
+                for key, value in self.fields.items()
+            },
+        )
 
     def get(self, field_name: str) -> Any:
         key = norm_identifier(field_name)
@@ -185,7 +191,7 @@ class ObjectValue:
         fields = {}
 
         for key, spec in type_spec.all_fields().items():
-            fields[key] = copy.deepcopy(default_value(spec.type_spec))
+            fields[key] = clone_value(default_value(spec.type_spec))
 
         return cls(type_spec, fields)
 
@@ -201,6 +207,14 @@ class ObjectValue:
 
     def field_type(self, field_name: str) -> Any:
         return self.type_spec.get_field(field_name).type_spec
+
+
+@dataclass(frozen=True)
+class NullObjectValue:
+    type_spec: ClassType
+
+    def __str__(self) -> str:
+        return "NULL"
 
 
 @dataclass
@@ -223,14 +237,18 @@ class ArrayValue:
         data = {}
 
         for index_tuple in itertools.product(*ranges):
-            data[index_tuple] = copy.deepcopy(
-                default_value(type_spec.element_type)
-            )
+            data[index_tuple] = clone_value(default_value(type_spec.element_type))
 
         return cls(type_spec, data)
 
     def clone(self):
-        return ArrayValue(self.type_spec, copy.deepcopy(self.data))
+        return ArrayValue(
+            self.type_spec,
+            {
+                key: clone_value(value)
+                for key, value in self.data.items()
+            },
+        )
 
     def validate_indices(self, indices: list[int]) -> tuple[int, ...]:
         if len(indices) != len(self.type_spec.bounds):
@@ -272,7 +290,7 @@ class InMemoryFileSystem:
     Small deterministic file-system abstraction used by run_source() by default.
 
     Text files are stored as lists of lines. Random files are stored as a mapping
-    from integer address to a deep-copied runtime value.
+    from integer address to a cloned runtime value.
     """
 
     def __init__(self):
@@ -372,20 +390,20 @@ class InMemoryFileSystem:
                 f"No record exists at address {address} in {file_id!r}"
             )
 
-        return copy.deepcopy(records[address])
+        return clone_value(records[address])
 
     def put_record(self, file_id: str, value: Any):
         handle = self._require_mode(file_id, {T.RANDOM})
-        self.random_files[handle.file_id][handle.random_pointer] = copy.deepcopy(value)
+        self.random_files[handle.file_id][handle.random_pointer] = clone_value(value)
 
 
 class LocalFileSystem(InMemoryFileSystem):
     """
     File-system abstraction used by run_file().
 
-    Text files are written as UTF-8 text. Random files are persisted with pickle,
-    which is a pragmatic interpreter implementation detail rather than a
-    Cambridge pseudocode concept.
+    Text files are written as UTF-8 text. Random files are persisted as JSON
+    using an explicit runtime-value serializer. This avoids loading arbitrary
+    Python pickle data from pseudocode-controlled file paths.
     """
 
     def __init__(self, base_dir: str | Path | None = None):
@@ -427,15 +445,25 @@ class LocalFileSystem(InMemoryFileSystem):
 
         elif mode == T.RANDOM:
             if path.exists():
-                with path.open("rb") as f:
-                    data = pickle.load(f)
+                try:
+                    raw = path.read_text(encoding="utf-8")
 
-                if not isinstance(data, dict):
+                    if raw.strip():
+                        data = json.loads(raw)
+                        self.random_files[key] = deserialize_random_file(data)
+                    else:
+                        self.random_files[key] = {}
+
+                except (
+                    UnicodeDecodeError,
+                    json.JSONDecodeError,
+                    KeyError,
+                    ValueError,
+                    TypeError,
+                ) as e:
                     raise PseudoRuntimeError(
-                        f"Random file {file_id!r} does not contain record data"
-                    )
-
-                self.random_files[key] = data
+                        f"Random file {file_id!r} is not a valid psei random file"
+                    ) from e
             else:
                 self.random_files[key] = {}
 
@@ -463,10 +491,368 @@ class LocalFileSystem(InMemoryFileSystem):
         elif handle.mode == T.RANDOM:
             path.parent.mkdir(parents=True, exist_ok=True)
 
-            with path.open("wb") as f:
-                pickle.dump(self.random_files.get(key, {}), f)
+            data = serialize_random_file(self.random_files.get(key, {}))
+            text = json.dumps(
+                data,
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+            path.write_text(text + "\n", encoding="utf-8", newline="\n")
 
         super().close_file(file_id)
+
+
+RANDOM_FILE_FORMAT = "psei-random-v1"
+
+
+def serialize_random_file(records: dict[int, Any]) -> dict[str, Any]:
+    return {
+        "format": RANDOM_FILE_FORMAT,
+        "records": {
+            str(address): serialize_value(value)
+            for address, value in sorted(records.items())
+        },
+    }
+
+
+def deserialize_random_file(data: Any) -> dict[int, Any]:
+    if not isinstance(data, dict) or data.get("format") != RANDOM_FILE_FORMAT:
+        raise PseudoRuntimeError("Random file is not a valid psei random file")
+
+    records_data = data.get("records")
+
+    if not isinstance(records_data, dict):
+        raise PseudoRuntimeError("Random file records must be an object")
+
+    records: dict[int, Any] = {}
+
+    for address_text, value_data in records_data.items():
+        address = int(address_text)
+
+        if address < 0:
+            raise PseudoRuntimeError("Random file address cannot be negative")
+
+        records[address] = deserialize_value(value_data)
+
+    return records
+
+
+def serialize_type_spec(type_spec: Any) -> dict[str, Any]:
+    if isinstance(type_spec, ArrayType):
+        return {
+            "kind": "array",
+            "bounds": [
+                [lower, upper]
+                for lower, upper in type_spec.bounds
+            ],
+            "element_type": serialize_type_spec(type_spec.element_type),
+        }
+
+    if isinstance(type_spec, EnumType):
+        return {
+            "kind": "enum",
+            "name": type_spec.name,
+            "values": list(type_spec.values),
+        }
+
+    if isinstance(type_spec, RecordType):
+        return {
+            "kind": "record",
+            "name": type_spec.name,
+            "fields": [
+                {
+                    "name": field.original_name,
+                    "type": serialize_type_spec(field.type_spec),
+                }
+                for field in type_spec.fields.values()
+            ],
+        }
+
+    if isinstance(type_spec, ClassType):
+        return {
+            "kind": "class",
+            "name": type_spec.name,
+        }
+
+    t = type_to_str(type_spec)
+
+    if t in BASIC_TYPES:
+        return {
+            "kind": "basic",
+            "name": t,
+        }
+
+    raise PseudoRuntimeError(
+        f"Cannot serialise type {type_to_str(type_spec)!r}"
+    )
+
+
+def deserialize_type_spec(data: Any) -> Any:
+    if not isinstance(data, dict):
+        raise PseudoRuntimeError("Serialized type must be an object")
+
+    kind = data.get("kind")
+
+    if kind == "basic":
+        name = str(data["name"]).upper()
+
+        if name not in BASIC_TYPES:
+            raise PseudoRuntimeError(f"Unknown serialized basic type {name!r}")
+
+        return name
+
+    if kind == "array":
+        bounds = []
+
+        for item in data["bounds"]:
+            if not isinstance(item, list) or len(item) != 2:
+                raise PseudoRuntimeError("Serialized array bound is invalid")
+
+            lower = int(item[0])
+            upper = int(item[1])
+
+            if lower > upper:
+                raise PseudoRuntimeError(
+                    "Serialized array lower bound exceeds upper bound"
+                )
+
+            bounds.append((lower, upper))
+
+        return ArrayType(
+            tuple(bounds),
+            deserialize_type_spec(data["element_type"]),
+        )
+
+    if kind == "enum":
+        values = tuple(str(value) for value in data["values"])
+
+        if not values:
+            raise PseudoRuntimeError("Serialized enum has no values")
+
+        return EnumType(
+            name=str(data["name"]),
+            values=values,
+            value_to_index={
+                norm_identifier(value): index
+                for index, value in enumerate(values)
+            },
+        )
+
+    if kind == "record":
+        field_specs: dict[str, RecordFieldSpec] = {}
+
+        for field in data["fields"]:
+            field_name = str(field["name"])
+            field_specs[norm_identifier(field_name)] = RecordFieldSpec(
+                original_name=field_name,
+                type_spec=deserialize_type_spec(field["type"]),
+            )
+
+        return RecordType(
+            name=str(data["name"]),
+            fields=field_specs,
+            completed=True,
+        )
+
+    if kind == "class":
+        return ClassType(
+            name=str(data["name"]),
+            completed=True,
+        )
+
+    raise PseudoRuntimeError(f"Unknown serialized type kind {kind!r}")
+
+
+def serialize_value(value: Any) -> dict[str, Any]:
+    if type(value) is bool:
+        return {
+            "kind": "boolean",
+            "value": value,
+        }
+
+    if type(value) is int:
+        return {
+            "kind": "integer",
+            "value": value,
+        }
+
+    if type(value) is float:
+        return {
+            "kind": "real",
+            "value": value,
+        }
+
+    if isinstance(value, Char):
+        return {
+            "kind": "char",
+            "value": str(value),
+        }
+
+    if type(value) is str:
+        return {
+            "kind": "string",
+            "value": value,
+        }
+
+    if isinstance(value, DateValue):
+        return {
+            "kind": "date",
+            "day": value.day,
+            "month": value.month,
+            "year": value.year,
+        }
+
+    if isinstance(value, EnumValue):
+        return {
+            "kind": "enum",
+            "type": serialize_type_spec(value.type_spec),
+            "name": value.name,
+        }
+
+    if isinstance(value, RecordValue):
+        return {
+            "kind": "record",
+            "type": serialize_type_spec(value.type_spec),
+            "fields": {
+                (
+                    value.type_spec.fields[key].original_name
+                    if key in value.type_spec.fields
+                    else key
+                ): serialize_value(field_value)
+                for key, field_value in value.fields.items()
+            },
+        }
+
+    if isinstance(value, ArrayValue):
+        return {
+            "kind": "array",
+            "type": serialize_type_spec(value.type_spec),
+            "data": [
+                {
+                    "indices": list(indices),
+                    "value": serialize_value(element),
+                }
+                for indices, element in sorted(value.data.items())
+            ],
+        }
+
+    if isinstance(value, NullObjectValue):
+        return {
+            "kind": "null_object",
+            "type": serialize_type_spec(value.type_spec),
+        }
+
+    if isinstance(value, ObjectValue):
+        raise PseudoRuntimeError(
+            "Object values cannot be persisted in RANDOM files; "
+            "store records or scalar values instead"
+        )
+
+    raise PseudoRuntimeError(
+        f"Cannot serialise value of type {runtime_type_name(value)}"
+    )
+
+
+def deserialize_value(data: Any) -> Any:
+    if not isinstance(data, dict):
+        raise PseudoRuntimeError("Serialized value must be an object")
+
+    kind = data.get("kind")
+
+    if kind == "boolean":
+        value = data["value"]
+
+        if type(value) is not bool:
+            raise PseudoRuntimeError("Serialized BOOLEAN value is invalid")
+
+        return value
+
+    if kind == "integer":
+        value = data["value"]
+
+        if type(value) is not int:
+            raise PseudoRuntimeError("Serialized INTEGER value is invalid")
+
+        return value
+
+    if kind == "real":
+        value = data["value"]
+
+        if type(value) is not int and type(value) is not float:
+            raise PseudoRuntimeError("Serialized REAL value is invalid")
+
+        return float(value)
+
+    if kind == "char":
+        return Char(str(data["value"]))
+
+    if kind == "string":
+        value = data["value"]
+
+        if type(value) is not str:
+            raise PseudoRuntimeError("Serialized STRING value is invalid")
+
+        return value
+
+    if kind == "date":
+        return make_date(
+            int(data["day"]),
+            int(data["month"]),
+            int(data["year"]),
+        )
+
+    if kind == "enum":
+        type_spec = deserialize_type_spec(data["type"])
+
+        if not isinstance(type_spec, EnumType):
+            raise PseudoRuntimeError("Serialized enum type is invalid")
+
+        name = str(data["name"])
+        return EnumValue(type_spec, name, type_spec.ordinal_of(name))
+
+    if kind == "record":
+        type_spec = deserialize_type_spec(data["type"])
+
+        if not isinstance(type_spec, RecordType):
+            raise PseudoRuntimeError("Serialized record type is invalid")
+
+        fields_data = data["fields"]
+
+        if not isinstance(fields_data, dict):
+            raise PseudoRuntimeError("Serialized record fields are invalid")
+
+        return RecordValue(
+            type_spec,
+            {
+                norm_identifier(field_name): deserialize_value(field_value)
+                for field_name, field_value in fields_data.items()
+            },
+        )
+
+    if kind == "array":
+        type_spec = deserialize_type_spec(data["type"])
+
+        if not isinstance(type_spec, ArrayType):
+            raise PseudoRuntimeError("Serialized array type is invalid")
+
+        values: dict[tuple[int, ...], Any] = {}
+
+        for item in data["data"]:
+            indices = tuple(int(index) for index in item["indices"])
+            values[indices] = deserialize_value(item["value"])
+
+        return ArrayValue(type_spec, values)
+
+    if kind == "null_object":
+        type_spec = deserialize_type_spec(data["type"])
+
+        if not isinstance(type_spec, ClassType):
+            raise PseudoRuntimeError("Serialized NULL object type is invalid")
+
+        return NullObjectValue(type_spec)
+
+    raise PseudoRuntimeError(f"Unknown serialized value kind {kind!r}")
 
 
 @dataclass
@@ -816,7 +1202,38 @@ class Runtime:
             )
 
         record_type.fields = field_specs
+        self.ensure_no_recursive_record_type(record_type)
         record_type.completed = True
+
+    def ensure_no_recursive_record_type(self, record_type: RecordType):
+        target_key = norm_identifier(record_type.name)
+
+        def visit_type(type_spec: Any, seen: set[str]):
+            if isinstance(type_spec, ArrayType):
+                visit_type(type_spec.element_type, seen)
+                return
+
+            if not isinstance(type_spec, RecordType):
+                return
+
+            key = norm_identifier(type_spec.name)
+
+            if key == target_key:
+                raise PseudoRuntimeError(
+                    f"Recursive record TYPE {record_type.name!r} "
+                    "is not supported"
+                )
+
+            if key in seen:
+                return
+
+            next_seen = seen | {key}
+
+            for nested_field in type_spec.fields.values():
+                visit_type(nested_field.type_spec, next_seen)
+
+        for field in record_type.fields.values():
+            visit_type(field.type_spec, set())
 
     def reserve_class_type(self, name: str, parent_name: str | None):
         key = norm_identifier(name)
@@ -854,6 +1271,8 @@ class Runtime:
 
             class_type.parent = self.classes[parent_key]
 
+        self.ensure_no_inheritance_cycle(class_type)
+
         fields: dict[str, ClassFieldSpec] = {}
         methods: dict[str, Any] = {}
 
@@ -864,7 +1283,7 @@ class Runtime:
         )
 
         for member in decl.members:
-            if member.__class__.__name__ == "ClassFieldDecl":
+            if isinstance(member, ClassFieldDecl):
                 field_key = norm_identifier(member.name)
 
                 if field_key in fields:
@@ -887,6 +1306,14 @@ class Runtime:
             else:
                 method_key = norm_identifier(member.name)
 
+                if (
+                    method_key == norm_identifier("NEW")
+                    and member.kind != T.PROCEDURE
+                ):
+                    raise PseudoRuntimeError(
+                        "Constructor NEW must be a PROCEDURE"
+                    )
+
                 if method_key in methods:
                     raise PseudoRuntimeError(
                         f"Duplicate method {member.name!r} in CLASS {decl.name!r}"
@@ -898,6 +1325,24 @@ class Runtime:
         class_type.methods = methods
         class_type.initializers = decl.initializers
         class_type.completed = True
+        self.ensure_no_inheritance_cycle(class_type)
+
+    def ensure_no_inheritance_cycle(self, class_type: ClassType):
+        target_key = norm_identifier(class_type.name)
+        seen = {target_key}
+        current = class_type.parent
+
+        while current is not None:
+            key = norm_identifier(current.name)
+
+            if key == target_key or key in seen:
+                raise PseudoRuntimeError(
+                    f"Inheritance cycle detected involving CLASS "
+                    f"{class_type.name!r}"
+                )
+
+            seen.add(key)
+            current = current.parent
 
     def get_class(self, name: str) -> ClassType:
         key = norm_identifier(name)
@@ -1067,7 +1512,7 @@ def default_value(type_spec: Any) -> Any:
         return RecordValue.create(type_spec)
 
     if isinstance(type_spec, ClassType):
-        return ObjectValue.create(type_spec)
+        return NullObjectValue(type_spec)
 
     t = type_to_str(type_spec)
 
@@ -1092,6 +1537,28 @@ def default_value(type_spec: Any) -> Any:
     raise PseudoRuntimeError(f"Unsupported type {type_spec!r}")
 
 
+def clone_value(value: Any) -> Any:
+    if isinstance(value, ArrayValue):
+        return value.clone()
+
+    if isinstance(value, RecordValue):
+        return value.clone()
+
+    if isinstance(value, EnumValue):
+        return EnumValue(value.type_spec, value.name, value.ordinal)
+
+    if isinstance(value, ObjectValue):
+        return value
+
+    if isinstance(value, NullObjectValue):
+        return NullObjectValue(value.type_spec)
+
+    if isinstance(value, Char):
+        return Char(str(value))
+
+    return value
+
+
 def infer_type(value: Any) -> Any:
     if isinstance(value, ArrayValue):
         return value.type_spec
@@ -1103,6 +1570,9 @@ def infer_type(value: Any) -> Any:
         return value.type_spec
 
     if isinstance(value, ObjectValue):
+        return value.type_spec
+
+    if isinstance(value, NullObjectValue):
         return value.type_spec
 
     if type(value) is bool:
@@ -1145,7 +1615,13 @@ def coerce_value(value: Any, type_spec: Any) -> Any:
                 f"to {type_to_str(type_spec)}"
             )
 
-        return value.clone()
+        return ArrayValue(
+            type_spec,
+            {
+                key: coerce_value(element, type_spec.element_type)
+                for key, element in value.data.items()
+            },
+        )
 
     if isinstance(type_spec, EnumType):
         if not isinstance(value, EnumValue):
@@ -1175,9 +1651,29 @@ def coerce_value(value: Any, type_spec: Any) -> Any:
                 f"to {type_to_str(type_spec)}"
             )
 
-        return RecordValue(type_spec, copy.deepcopy(value.fields))
+        fields = {}
+
+        for key, field in type_spec.fields.items():
+            if key not in value.fields:
+                raise PseudoRuntimeError(
+                    f"Record value for {type_to_str(type_spec)} "
+                    f"is missing field {field.original_name!r}"
+                )
+
+            fields[key] = coerce_value(value.fields[key], field.type_spec)
+
+        return RecordValue(type_spec, fields)
 
     if isinstance(type_spec, ClassType):
+        if isinstance(value, NullObjectValue):
+            if not is_class_assignable(value.type_spec, type_spec):
+                raise PseudoRuntimeError(
+                    f"Cannot assign {type_to_str(value.type_spec)} "
+                    f"to {type_to_str(type_spec)}"
+                )
+
+            return NullObjectValue(type_spec)
+
         if not isinstance(value, ObjectValue):
             raise PseudoRuntimeError(
                 f"Expected {type_to_str(type_spec)}, "
@@ -1265,6 +1761,9 @@ def debug_value(value: Any) -> str:
     if isinstance(value, ObjectValue):
         return f"<{type_to_str(value.type_spec)} object>"
 
+    if isinstance(value, NullObjectValue):
+        return "NULL"
+
     if isinstance(value, Char):
         if value == "\0":
             return "'\\0'"
@@ -1292,6 +1791,9 @@ def output_value(value: Any) -> str:
 
     if isinstance(value, ObjectValue):
         return f"<{type_to_str(value.type_spec)} object>"
+
+    if isinstance(value, NullObjectValue):
+        return "NULL"
 
     if isinstance(value, bool):
         return "TRUE" if value else "FALSE"

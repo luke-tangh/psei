@@ -17,6 +17,11 @@ def run_source(
     if runtime is None:
         runtime = Runtime(strict=bool(strict))
 
+    elif strict is not None and strict != runtime.strict:
+        raise ValueError(
+            "strict argument must match runtime.strict when runtime is provided"
+        )
+
     if strict is None:
         strict = runtime.strict
 
