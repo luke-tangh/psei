@@ -5,7 +5,14 @@ from typing import Any
 
 from psei.errors import PseudoRuntimeError
 
-from .types import coerce_value, debug_value, infer_type, norm_identifier, type_to_str
+from .types import (
+    DEFAULT_MAX_ARRAY_ELEMENTS,
+    coerce_value,
+    debug_value,
+    infer_type,
+    norm_identifier,
+    type_to_str,
+)
 from .values import Reference
 
 
@@ -43,10 +50,12 @@ class Environment:
         strict: bool = False,
         parent: Environment | None = None,
         name: str = "scope",
+        max_array_elements: int | None = DEFAULT_MAX_ARRAY_ELEMENTS,
     ):
         self.strict = strict
         self.parent = parent
         self.name = name
+        self.max_array_elements = max_array_elements
         self.bindings: dict[str, Binding] = {}
 
     @staticmethod
@@ -89,7 +98,10 @@ class Environment:
             )
 
         if value is None:
-            value = default_value(type_spec)
+            value = default_value(
+                type_spec,
+                max_array_elements=self.max_array_elements,
+            )
         else:
             value = coerce_value(value, type_spec)
 

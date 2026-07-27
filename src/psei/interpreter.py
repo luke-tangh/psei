@@ -56,6 +56,7 @@ from .ast_nodes import (
 from .errors import PseudoRuntimeError
 from .runtime import (
     ArrayValue,
+    ClassType,
     EnumValue,
     NullObjectValue,
     ObjectValue,
@@ -188,6 +189,7 @@ class Interpreter:
 
     def execute(self, stmt: Any):
         try:
+            self.runtime.tick()
             return self._execute(stmt)
 
         except PseudoRuntimeError as err:
@@ -268,7 +270,7 @@ class Interpreter:
                 for expr in stmt.exprs
             ]
 
-            self.runtime.output_writer("".join(values))
+            self.runtime.output("".join(values))
             return
 
         if isinstance(stmt, OpenFileStmt):
@@ -334,12 +336,14 @@ class Interpreter:
 
         if isinstance(stmt, WhileStmt):
             while self.require_bool(self.eval(stmt.condition)):
+                self.runtime.tick()
                 self.execute_block(stmt.body)
 
             return
 
         if isinstance(stmt, RepeatStmt):
             while True:
+                self.runtime.tick()
                 self.execute_block(stmt.body)
 
                 if self.require_bool(self.eval(stmt.condition)):
@@ -390,13 +394,18 @@ class Interpreter:
             if constructor.kind != T.PROCEDURE:
                 raise PseudoRuntimeError("Constructor NEW must be a PROCEDURE")
 
+            self.ensure_method_access(class_type, constructor)
+
             prepared_constructor = self.prepare_arguments(
                 constructor.params,
                 arg_exprs,
                 f"CONSTRUCTOR {class_name}.NEW",
             )
 
-        obj = ObjectValue.create(class_type)
+        obj = ObjectValue.create(
+            class_type,
+            max_array_elements=self.runtime.max_array_elements,
+        )
         self.run_class_initializers(obj, class_type)
 
         if constructor is not None:
@@ -449,14 +458,79 @@ class Interpreter:
                 spec.type_spec,
                 Reference(
                     type_spec=spec.type_spec,
-                    getter=lambda obj=obj, name=spec.original_name: obj.get(name),
-                    setter=lambda value, obj=obj, name=spec.original_name: obj.set(
-                        name,
-                        value,
+                    getter=lambda obj=obj, name=spec.original_name: (
+                        self.get_object_field(obj, name)
+                    ),
+                    setter=lambda value, obj=obj, name=spec.original_name: (
+                        self.set_object_field(obj, name, value)
                     ),
                     description=f"{obj.type_spec.name}.{spec.original_name}",
                 ),
             )
+
+    def private_access_allowed(self, owner_name: str) -> bool:
+        if not self.method_context:
+            return False
+
+        _obj, current_class = self.method_context[-1]
+        return norm_identifier(current_class.name) == norm_identifier(owner_name)
+
+    def ensure_member_access(
+        self,
+        access: str,
+        owner_name: str,
+        description: str,
+    ):
+        if access != T.PRIVATE:
+            return
+
+        if owner_name and self.private_access_allowed(owner_name):
+            return
+
+        raise PseudoRuntimeError(f"Cannot access PRIVATE {description}")
+
+    def get_object_field(self, obj: ObjectValue, field_name: str) -> Any:
+        spec = obj.type_spec.get_field(field_name)
+        owner_name = spec.owner_name or obj.type_spec.name
+
+        self.ensure_member_access(
+            spec.access,
+            owner_name,
+            f"property {field_name!r} of CLASS {owner_name!r}",
+        )
+
+        return obj.get(field_name)
+
+    def set_object_field(self, obj: ObjectValue, field_name: str, value: Any):
+        spec = obj.type_spec.get_field(field_name)
+        owner_name = spec.owner_name or obj.type_spec.name
+
+        self.ensure_member_access(
+            spec.access,
+            owner_name,
+            f"property {field_name!r} of CLASS {owner_name!r}",
+        )
+
+        obj.set(field_name, value)
+
+    def object_field_type(self, obj: ObjectValue, field_name: str) -> Any:
+        spec = obj.type_spec.get_field(field_name)
+        owner_name = spec.owner_name or obj.type_spec.name
+
+        self.ensure_member_access(
+            spec.access,
+            owner_name,
+            f"property {field_name!r} of CLASS {owner_name!r}",
+        )
+
+        return spec.type_spec
+
+    def ensure_method_access(self, owner_class: ClassType, method: Any):
+        self.ensure_member_access(
+            method.access,
+            owner_class.name,
+            f"method {method.name!r} of CLASS {owner_class.name!r}",
+        )
 
     def eval_super(self) -> SuperProxy:
         if not self.method_context:
@@ -498,9 +572,9 @@ class Interpreter:
                 f"Method call target must be an object, got {runtime_type_name(target)}"
             )
 
-        method, _owner_class = start_class.find_method(expr.method_name)
+        method, owner_class = start_class.find_method(expr.method_name)
 
-        if method is None:
+        if method is None or owner_class is None:
             raise PseudoRuntimeError(
                 f"CLASS {start_class.name!r} has no method {expr.method_name!r}"
             )
@@ -508,6 +582,11 @@ class Interpreter:
         if method.kind == T.PROCEDURE and expression_context:
             raise PseudoRuntimeError(
                 f"PROCEDURE method {expr.method_name!r} cannot be used as a FUNCTION"
+            )
+
+        if method.kind == T.FUNCTION and not expression_context:
+            raise PseudoRuntimeError(
+                f"FUNCTION method {expr.method_name!r} cannot be used as a statement"
             )
 
         value, _kind = self.call_method(
@@ -537,6 +616,8 @@ class Interpreter:
                 f"CLASS {start_class.name!r} has no method {method_name!r}"
             )
 
+        self.ensure_method_access(owner_class, method)
+
         if prepared is None:
             prepared = self.prepare_arguments(
                 method.params,
@@ -550,33 +631,34 @@ class Interpreter:
             else None
         )
 
-        with self.runtime.scope(context):
-            self.bind_prepared_arguments(prepared)
-            self.bind_object_fields(obj)
+        with self.runtime.call_frame(context):
+            with self.runtime.scope(context):
+                self.bind_prepared_arguments(prepared)
+                self.bind_object_fields(obj)
 
-            self.method_context.append((obj, owner_class))
+                self.method_context.append((obj, owner_class))
 
-            try:
-                self.execute_block(method.body)
+                try:
+                    self.execute_block(method.body)
 
-            except ReturnSignal as signal:
-                if method.kind != T.FUNCTION:
-                    err = PseudoRuntimeError(
-                        "RETURN cannot be used in a PROCEDURE method"
-                    )
+                except ReturnSignal as signal:
+                    if method.kind != T.FUNCTION:
+                        err = PseudoRuntimeError(
+                            "RETURN cannot be used in a PROCEDURE method"
+                        )
 
-                    if signal.span is not None:
-                        raise err.with_location(
-                            signal.span.line,
-                            signal.span.col,
-                        ) from None
+                        if signal.span is not None:
+                            raise err.with_location(
+                                signal.span.line,
+                                signal.span.col,
+                            ) from None
 
-                    raise err from None
+                        raise err from None
 
-                return coerce_value(signal.value, return_type), method.kind
+                    return coerce_value(signal.value, return_type), method.kind
 
-            finally:
-                self.method_context.pop()
+                finally:
+                    self.method_context.pop()
 
         if method.kind == T.FUNCTION:
             raise PseudoRuntimeError(
@@ -634,49 +716,57 @@ class Interpreter:
             return i <= end if step > 0 else i >= end
 
         while keep_going():
+            self.runtime.tick()
             self.env.assign(stmt.var_name, i)
             self.execute_block(stmt.body)
             i += step
 
     def call_procedure(self, name: str, arg_exprs: list[Any]):
         decl = self.runtime.get_procedure(name)
+        context = f"PROCEDURE {decl.name}"
         prepared = self.prepare_arguments(
             decl.params,
             arg_exprs,
-            f"PROCEDURE {decl.name}",
+            context,
         )
 
-        with self.runtime.scope(f"PROCEDURE {decl.name}"):
-            self.bind_prepared_arguments(prepared)
+        with self.runtime.call_frame(context):
+            with self.runtime.scope(context):
+                self.bind_prepared_arguments(prepared)
 
-            try:
-                self.execute_block(decl.body)
+                try:
+                    self.execute_block(decl.body)
 
-            except ReturnSignal as signal:
-                err = PseudoRuntimeError("RETURN cannot be used in a PROCEDURE")
+                except ReturnSignal as signal:
+                    err = PseudoRuntimeError("RETURN cannot be used in a PROCEDURE")
 
-                if signal.span is not None:
-                    raise err.with_location(signal.span.line, signal.span.col) from None
+                    if signal.span is not None:
+                        raise err.with_location(
+                            signal.span.line,
+                            signal.span.col,
+                        ) from None
 
-                raise err from None
+                    raise err from None
 
     def call_function(self, name: str, arg_exprs: list[Any]) -> Any:
         decl = self.runtime.get_function(name)
+        context = f"FUNCTION {decl.name}"
         prepared = self.prepare_arguments(
             decl.params,
             arg_exprs,
-            f"FUNCTION {decl.name}",
+            context,
         )
         return_type = self.runtime.resolve_type_spec(decl.return_type)
 
-        with self.runtime.scope(f"FUNCTION {decl.name}"):
-            self.bind_prepared_arguments(prepared)
+        with self.runtime.call_frame(context):
+            with self.runtime.scope(context):
+                self.bind_prepared_arguments(prepared)
 
-            try:
-                self.execute_block(decl.body)
+                try:
+                    self.execute_block(decl.body)
 
-            except ReturnSignal as signal:
-                return coerce_value(signal.value, return_type)
+                except ReturnSignal as signal:
+                    return coerce_value(signal.value, return_type)
 
         raise PseudoRuntimeError(f"FUNCTION {decl.name!r} did not RETURN a value")
 
@@ -792,14 +882,15 @@ class Interpreter:
                 )
 
             if isinstance(holder, ObjectValue):
-                field_type = holder.field_type(expr.field_name)
+                field_type = self.object_field_type(holder, expr.field_name)
 
                 return Reference(
                     type_spec=field_type,
-                    getter=lambda obj=holder, name=expr.field_name: obj.get(name),
-                    setter=lambda value, obj=holder, name=expr.field_name: obj.set(
-                        name,
-                        value,
+                    getter=lambda obj=holder, name=expr.field_name: (
+                        self.get_object_field(obj, name)
+                    ),
+                    setter=lambda value, obj=holder, name=expr.field_name: (
+                        self.set_object_field(obj, name, value)
                     ),
                     description="object property",
                 )
@@ -864,7 +955,7 @@ class Interpreter:
                 return
 
             if isinstance(holder, ObjectValue):
-                holder.set(target.field_name, value)
+                self.set_object_field(holder, target.field_name, value)
                 return
 
             if isinstance(holder, NullObjectValue):
@@ -917,7 +1008,7 @@ class Interpreter:
                 return holder.field_type(target.field_name)
 
             if isinstance(holder, ObjectValue):
-                return holder.field_type(target.field_name)
+                return self.object_field_type(holder, target.field_name)
 
             if isinstance(holder, NullObjectValue):
                 raise PseudoRuntimeError(
@@ -980,7 +1071,7 @@ class Interpreter:
                 return holder.get(expr.field_name)
 
             if isinstance(holder, ObjectValue):
-                return holder.get(expr.field_name)
+                return self.get_object_field(holder, expr.field_name)
 
             if isinstance(holder, NullObjectValue):
                 raise PseudoRuntimeError(
@@ -1078,7 +1169,7 @@ class Interpreter:
             if right_i == 0:
                 raise PseudoRuntimeError("Division by zero")
 
-            return int(left_i / right_i)
+            return self.integer_div(left_i, right_i)
 
         if t == T.MOD:
             left_i = self.require_int(left)
@@ -1087,7 +1178,7 @@ class Interpreter:
             if right_i == 0:
                 raise PseudoRuntimeError("Modulo by zero")
 
-            return left_i % right_i
+            return left_i - self.integer_div(left_i, right_i) * right_i
 
         if t == T.AMP:
             if type(left) is not str or type(right) is not str:
@@ -1281,12 +1372,12 @@ class Interpreter:
         if upper == "LCASE":
             self.require_arg_count(upper, args, 1)
             c = self.require_char(args[0])
-            return Char(c.lower())
+            return self.ascii_lower_char(c)
 
         if upper == "UCASE":
             self.require_arg_count(upper, args, 1)
             c = self.require_char(args[0])
-            return Char(c.upper())
+            return self.ascii_upper_char(c)
 
         if upper == "INT":
             self.require_arg_count(upper, args, 1)
@@ -1303,6 +1394,33 @@ class Interpreter:
             return self.runtime.rng.random() * x
 
         raise PseudoRuntimeError(f"Unknown function {name!r}")
+
+    @staticmethod
+    def integer_div(left_i: int, right_i: int) -> int:
+        quotient = abs(left_i) // abs(right_i)
+
+        if (left_i >= 0) == (right_i >= 0):
+            return quotient
+
+        return -quotient
+
+    @staticmethod
+    def ascii_lower_char(c: Char) -> Char:
+        s = str(c)
+
+        if "A" <= s <= "Z":
+            return Char(chr(ord(s) + 32))
+
+        return Char(s)
+
+    @staticmethod
+    def ascii_upper_char(c: Char) -> Char:
+        s = str(c)
+
+        if "a" <= s <= "z":
+            return Char(chr(ord(s) - 32))
+
+        return Char(s)
 
     @staticmethod
     def require_arg_count(name: str, args: list[Any], count: int):

@@ -47,19 +47,40 @@ class ArrayValue:
     data: dict[tuple[int, ...], Any]
 
     @classmethod
-    def create(cls, type_spec: ArrayType) -> ArrayValue:
+    def create(
+        cls,
+        type_spec: ArrayType,
+        *,
+        max_elements: int | None = None,
+    ) -> ArrayValue:
         # Local import avoids circular import with runtime.types.
-        from .types import clone_value, default_value
+        from .types import clone_value, default_value, type_to_str
 
-        ranges = [
-            range(lower, upper + 1)
-            for lower, upper in type_spec.bounds
-        ]
+        ranges = []
+        total_elements = 1
+
+        for lower, upper in type_spec.bounds:
+            length = upper - lower + 1
+            total_elements *= length
+
+            if max_elements is not None and total_elements > max_elements:
+                raise PseudoRuntimeError(
+                    f"ARRAY {type_to_str(type_spec)} has "
+                    f"{total_elements} element(s), exceeding the limit of "
+                    f"{max_elements}"
+                )
+
+            ranges.append(range(lower, upper + 1))
 
         data = {}
 
         for index_tuple in itertools.product(*ranges):
-            data[index_tuple] = clone_value(default_value(type_spec.element_type))
+            data[index_tuple] = clone_value(
+                default_value(
+                    type_spec.element_type,
+                    max_array_elements=max_elements,
+                )
+            )
 
         return cls(type_spec, data)
 

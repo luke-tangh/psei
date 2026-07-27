@@ -21,6 +21,7 @@ from .environment import Environment
 from .files import InMemoryFileSystem
 from .oop import ClassFieldSpec, ClassType
 from .types import (
+    DEFAULT_MAX_ARRAY_ELEMENTS,
     EnumType,
     EnumValue,
     RecordFieldSpec,
@@ -40,9 +41,38 @@ class Runtime:
         output_writer: Callable[[str], Any] | None = None,
         rng: random.Random | None = None,
         file_system: InMemoryFileSystem | None = None,
+        max_steps: int | None = 1_000_000,
+        max_array_elements: int | None = DEFAULT_MAX_ARRAY_ELEMENTS,
+        max_call_depth: int | None = 1_000,
+        max_output_chars: int | None = 1_000_000,
     ):
+        for limit_name, limit_value in {
+            "max_steps": max_steps,
+            "max_array_elements": max_array_elements,
+            "max_call_depth": max_call_depth,
+            "max_output_chars": max_output_chars,
+        }.items():
+            if limit_value is not None and limit_value < 0:
+                raise ValueError(f"{limit_name} must be non-negative or None")
+
         self.strict = strict
-        self.global_env = Environment(strict=strict, name="global")
+
+        self.max_steps = max_steps
+        self.steps_executed = 0
+
+        self.max_array_elements = max_array_elements
+
+        self.max_call_depth = max_call_depth
+        self.call_depth = 0
+
+        self.max_output_chars = max_output_chars
+        self.output_chars_written = 0
+
+        self.global_env = Environment(
+            strict=strict,
+            name="global",
+            max_array_elements=max_array_elements,
+        )
         self._env_stack: list[Environment] = [self.global_env]
 
         self.types: dict[str, Any] = {}
@@ -52,7 +82,11 @@ class Runtime:
         self.procedures: dict[str, Any] = {}
         self.functions: dict[str, Any] = {}
 
-        self.file_system = file_system if file_system is not None else InMemoryFileSystem()
+        self.file_system = (
+            file_system
+            if file_system is not None
+            else InMemoryFileSystem()
+        )
 
         self.input_provider = input_provider if input_provider is not None else input
         self.output_writer = output_writer if output_writer is not None else print
@@ -67,6 +101,7 @@ class Runtime:
             strict=self.strict,
             parent=self.env,
             name=name,
+            max_array_elements=self.max_array_elements,
         )
         self._env_stack.append(env)
         return env
@@ -76,6 +111,56 @@ class Runtime:
             raise PseudoRuntimeError("Cannot pop the global scope")
 
         return self._env_stack.pop()
+
+    def tick(self, amount: int = 1):
+        if amount <= 0:
+            return
+
+        self.steps_executed += amount
+
+        if (
+            self.max_steps is not None
+            and self.steps_executed > self.max_steps
+        ):
+            raise PseudoRuntimeError(
+                f"Execution step limit exceeded "
+                f"({self.max_steps} step(s))"
+            )
+
+    @contextmanager
+    def call_frame(self, name: str = "call"):
+        self.call_depth += 1
+
+        try:
+            if (
+                self.max_call_depth is not None
+                and self.call_depth > self.max_call_depth
+            ):
+                raise PseudoRuntimeError(
+                    f"Call depth limit exceeded during {name} "
+                    f"({self.max_call_depth} call(s))"
+                )
+
+            yield
+
+        finally:
+            self.call_depth -= 1
+
+    def output(self, text: str):
+        text = str(text)
+        new_total = self.output_chars_written + len(text)
+
+        if (
+            self.max_output_chars is not None
+            and new_total > self.max_output_chars
+        ):
+            raise PseudoRuntimeError(
+                f"OUTPUT limit exceeded "
+                f"({self.max_output_chars} character(s))"
+            )
+
+        self.output_chars_written = new_total
+        self.output_writer(text)
 
     @contextmanager
     def scope(self, name: str = "local"):
@@ -328,6 +413,7 @@ class Runtime:
                     original_name=member.name,
                     type_spec=self.resolve_type_spec(member.type_spec),
                     access=member.access,
+                    owner_name=decl.name,
                 )
 
             else:

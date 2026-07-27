@@ -16,6 +16,7 @@ class ClassFieldSpec:
     original_name: str
     type_spec: Any
     access: str = T.PUBLIC
+    owner_name: str = ""
 
 
 @dataclass
@@ -70,7 +71,12 @@ class ObjectValue:
     fields: dict[str, Any]
 
     @classmethod
-    def create(cls, type_spec: ClassType) -> ObjectValue:
+    def create(
+        cls,
+        type_spec: ClassType,
+        *,
+        max_array_elements: int | None = None,
+    ) -> ObjectValue:
         from .types import clone_value, default_value
 
         if not type_spec.completed:
@@ -81,7 +87,12 @@ class ObjectValue:
         fields = {}
 
         for key, spec in type_spec.all_fields().items():
-            fields[key] = clone_value(default_value(spec.type_spec))
+            fields[key] = clone_value(
+                default_value(
+                    spec.type_spec,
+                    max_array_elements=max_array_elements,
+                )
+            )
 
         return cls(type_spec, fields)
 

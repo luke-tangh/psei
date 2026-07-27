@@ -260,6 +260,19 @@ pseudo run path/to/program.pseudo --strict
 python -m psei run path/to/program.pseudo --strict
 ```
 
+## Resource limits
+
+`Runtime` applies conservative execution limits by default:
+
+- `max_steps=1_000_000`
+- `max_array_elements=1_000_000`
+- `max_call_depth=1_000`
+- `max_output_chars=1_000_000`
+
+Pass `None` for a limit to disable it explicitly. These checks protect REPL,
+test and API-style execution from infinite loops, runaway recursion, very large
+array allocation and excessive output.
+
 ## Development
 
 Run tests:
@@ -311,7 +324,7 @@ Supported OOP features:
 
 - `CLASS ... ENDCLASS`
 - `INHERITS`
-- `PUBLIC` and `PRIVATE` modifiers are parsed and stored
+- `PUBLIC` and `PRIVATE` modifiers are enforced for object property and method access
 - constructors as `PROCEDURE NEW(...)`
 - object creation with `NEW ClassName(...)`
 - method calls using dot notation, for example `Player.SetAttempts(5)`
@@ -320,5 +333,5 @@ Supported OOP features:
 - per-object properties with default values
 - method bodies can access object properties by name
 
-Access modifiers are currently informational only; runtime enforcement of
-`PRIVATE` members is not implemented yet.
+Access modifiers are enforced at runtime. `PRIVATE` properties and methods can
+be accessed only from methods or initializers of the class that declares them.

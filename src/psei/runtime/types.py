@@ -22,6 +22,9 @@ BASIC_TYPES = {
 }
 
 
+DEFAULT_MAX_ARRAY_ELEMENTS = 1_000_000
+
+
 def norm_identifier(name: str) -> str:
     return name.lower()
 
@@ -108,7 +111,12 @@ class RecordValue:
     fields: dict[str, Any]
 
     @classmethod
-    def create(cls, type_spec: RecordType) -> RecordValue:
+    def create(
+        cls,
+        type_spec: RecordType,
+        *,
+        max_array_elements: int | None = DEFAULT_MAX_ARRAY_ELEMENTS,
+    ) -> RecordValue:
         if not type_spec.completed:
             raise PseudoRuntimeError(
                 f"Record type {type_spec.name!r} is not completely defined"
@@ -117,7 +125,12 @@ class RecordValue:
         fields = {}
 
         for key, field in type_spec.fields.items():
-            fields[key] = clone_value(default_value(field.type_spec))
+            fields[key] = clone_value(
+                default_value(
+                    field.type_spec,
+                    max_array_elements=max_array_elements,
+                )
+            )
 
         return cls(type_spec, fields)
 
@@ -291,7 +304,11 @@ def is_class_assignable(source: ClassType, target: ClassType) -> bool:
     return False
 
 
-def default_value(type_spec: Any) -> Any:
+def default_value(
+    type_spec: Any,
+    *,
+    max_array_elements: int | None = DEFAULT_MAX_ARRAY_ELEMENTS,
+) -> Any:
     if isinstance(type_spec, UserTypeRef):
         raise PseudoRuntimeError(
             f"Cannot create value for unresolved type {type_spec.name!r}"
@@ -309,7 +326,10 @@ def default_value(type_spec: Any) -> Any:
         return SetValue.create(type_spec)
 
     if isinstance(type_spec, ArrayType):
-        return ArrayValue.create(type_spec)
+        return ArrayValue.create(
+            type_spec,
+            max_elements=max_array_elements,
+        )
 
     if isinstance(type_spec, EnumType):
         if not type_spec.values:
@@ -321,7 +341,10 @@ def default_value(type_spec: Any) -> Any:
         return EnumValue(type_spec, first, type_spec.ordinal_of(first))
 
     if isinstance(type_spec, RecordType):
-        return RecordValue.create(type_spec)
+        return RecordValue.create(
+            type_spec,
+            max_array_elements=max_array_elements,
+        )
 
     if isinstance(type_spec, ClassType):
         return NullObjectValue(type_spec)
@@ -493,7 +516,8 @@ def coerce_value(value: Any, type_spec: Any) -> Any:
                 f"to {type_to_str(type_spec)}"
             )
 
-        return EnumValue(type_spec, value.name, value.ordinal)
+        ordinal = type_spec.ordinal_of(value.name)
+        return EnumValue(type_spec, value.name, ordinal)
 
     if isinstance(type_spec, RecordType):
         if not isinstance(value, RecordValue):
@@ -675,6 +699,7 @@ def output_value(value: Any) -> str:
 
 __all__ = [
     "BASIC_TYPES",
+    "DEFAULT_MAX_ARRAY_ELEMENTS",
     "EnumType",
     "EnumValue",
     "RecordFieldSpec",

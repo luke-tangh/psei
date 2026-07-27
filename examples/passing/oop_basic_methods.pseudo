@@ -7,7 +7,7 @@ CLASS Player
       Attempts ← Number
    ENDPROCEDURE
 
-   PRIVATE FUNCTION GetAttempts() RETURNS INTEGER
+   PUBLIC FUNCTION GetAttempts() RETURNS INTEGER
       RETURN Attempts
    ENDFUNCTION
 ENDCLASS
