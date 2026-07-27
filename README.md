@@ -22,6 +22,13 @@ Supported:
 - whole-array assignment with cloning semantics
 - user-defined enumerated types:
   - `TYPE Season = (Spring, Summer, Autumn, Winter)`
+- user-defined pointer types:
+  - `TYPE TIntPointer = ^INTEGER`
+  - address-of with `^Variable`
+  - dereference with `PointerVariable^`
+- user-defined set types:
+  - `TYPE LetterSet = SET OF CHAR`
+  - `DEFINE Vowels ('A','E','I','O','U') : LetterSet`
 - user-defined record types:
   - `TYPE ... ENDTYPE`
   - field access using dot notation, for example `Pupil.LastName`
@@ -96,8 +103,8 @@ Supported:
 
 Not implemented yet:
 
-- sets
-- pointers
+- full Cambridge ADT library coverage beyond the implemented ARRAY, record,
+  set, pointer, class/object and file-handling subset
 
 ## File handling notes
 

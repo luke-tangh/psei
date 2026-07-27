@@ -4,6 +4,7 @@ import re
 from typing import Any
 
 from .ast_nodes import (
+    AddressOfExpr,
     ArrayAccessExpr,
     ArrayTarget,
     ArrayType,
@@ -16,6 +17,9 @@ from .ast_nodes import (
     CloseFileStmt,
     ConstantStmt,
     DeclareStmt,
+    DefineSetStmt,
+    DerefExpr,
+    DerefTarget,
     FieldAccessExpr,
     FieldTarget,
     ForStmt,
@@ -30,6 +34,7 @@ from .ast_nodes import (
     NewExpr,
     OpenFileStmt,
     OutputStmt,
+    PointerType,
     ProcedureDecl,
     Program,
     PutRecordStmt,
@@ -39,7 +44,9 @@ from .ast_nodes import (
     SeekStmt,
     SuperExpr,
     TypeDeclEnum,
+    TypeDeclPointer,
     TypeDeclRecord,
+    TypeDeclSet,
     UnaryExpr,
     VariableExpr,
     VarTarget,
@@ -52,11 +59,16 @@ from .runtime import (
     EnumValue,
     NullObjectValue,
     ObjectValue,
+    PointerValue,
     RecordValue,
     Reference,
+    SetType,
+    SetValue,
     SuperProxy,
     Runtime,
     coerce_value,
+    make_set_value,
+    norm_identifier,
     output_value,
     runtime_type_name,
     same_type,
@@ -96,22 +108,37 @@ class Interpreter:
                 self.execute(stmt)
 
         for stmt in program.statements:
-            if isinstance(stmt, TypeDeclRecord):
+            if isinstance(stmt, (TypeDeclPointer, TypeDeclSet)):
                 self.execute(stmt)
 
         for stmt in program.statements:
-            if isinstance(stmt, ClassDecl):
+            if isinstance(stmt, TypeDeclRecord):
                 self.execute(stmt)
+
+        self.execute_class_declarations(
+            [
+                stmt
+                for stmt in program.statements
+                if isinstance(stmt, ClassDecl)
+            ]
+        )
 
         for stmt in program.statements:
             if isinstance(stmt, (ProcedureDecl, FunctionDecl)):
                 self.execute(stmt)
 
+        declaration_types = (
+            TypeDeclEnum,
+            TypeDeclPointer,
+            TypeDeclRecord,
+            TypeDeclSet,
+            ClassDecl,
+            ProcedureDecl,
+            FunctionDecl,
+        )
+
         for stmt in program.statements:
-            if isinstance(
-                stmt,
-                (TypeDeclEnum, TypeDeclRecord, ClassDecl, ProcedureDecl, FunctionDecl),
-            ):
+            if isinstance(stmt, declaration_types):
                 continue
 
             try:
@@ -124,6 +151,36 @@ class Interpreter:
                     raise err.with_location(signal.span.line, signal.span.col) from None
 
                 raise err from None
+
+    def execute_class_declarations(self, declarations: list[ClassDecl]):
+        pending = {
+            norm_identifier(decl.name): decl
+            for decl in declarations
+        }
+
+        while pending:
+            progressed = False
+
+            for key, decl in list(pending.items()):
+                parent_name = decl.parent_name
+
+                if (
+                    parent_name is None
+                    or norm_identifier(parent_name) not in pending
+                ):
+                    self.execute(decl)
+                    del pending[key]
+                    progressed = True
+
+            if progressed:
+                continue
+
+            # If every remaining class depends on another remaining class, the
+            # declarations contain an inheritance cycle. Register one of them so
+            # Runtime can report a deterministic error.
+            key, decl = next(iter(pending.items()))
+            self.execute(decl)
+            del pending[key]
 
     def execute_block(self, statements: list[Any]):
         for stmt in statements:
@@ -147,6 +204,14 @@ class Interpreter:
             self.runtime.register_enum_type(stmt.name, stmt.values)
             return
 
+        if isinstance(stmt, TypeDeclPointer):
+            self.runtime.register_pointer_type(stmt.name, stmt.target_type)
+            return
+
+        if isinstance(stmt, TypeDeclSet):
+            self.runtime.register_set_type(stmt.name, stmt.element_type)
+            return
+
         if isinstance(stmt, TypeDeclRecord):
             self.runtime.register_record_type(stmt.name, stmt.fields)
             return
@@ -163,6 +228,26 @@ class Interpreter:
         if isinstance(stmt, ConstantStmt):
             value = self.eval(stmt.expr)
             self.env.define_constant(stmt.name, value)
+            return
+
+        if isinstance(stmt, DefineSetStmt):
+            type_spec = self.runtime.resolve_type_spec(stmt.type_spec)
+
+            if not isinstance(type_spec, SetType):
+                raise PseudoRuntimeError(
+                    f"DEFINE target type must be SET, got {type_to_str(type_spec)}"
+                )
+
+            values = [
+                self.eval(expr)
+                for expr in stmt.values
+            ]
+            self.env.define(
+                stmt.name,
+                type_spec,
+                make_set_value(type_spec, values),
+                constant=True,
+            )
             return
 
         if isinstance(stmt, AssignStmt):
@@ -293,30 +378,36 @@ class Interpreter:
 
     def create_object(self, class_name: str, arg_exprs: list[Any]) -> ObjectValue:
         class_type = self.runtime.get_class(class_name)
-        obj = ObjectValue.create(class_type)
-
-        self.run_class_initializers(obj, class_type)
-
-        constructor, _owner = class_type.find_method("NEW")
+        constructor = class_type.methods.get(norm_identifier("NEW"))
+        prepared_constructor = None
 
         if constructor is None:
             if arg_exprs:
                 raise PseudoRuntimeError(
                     f"CLASS {class_name!r} has no constructor accepting arguments"
                 )
+        else:
+            if constructor.kind != T.PROCEDURE:
+                raise PseudoRuntimeError("Constructor NEW must be a PROCEDURE")
 
-            return obj
+            prepared_constructor = self.prepare_arguments(
+                constructor.params,
+                arg_exprs,
+                f"CONSTRUCTOR {class_name}.NEW",
+            )
 
-        if constructor.kind != T.PROCEDURE:
-            raise PseudoRuntimeError("Constructor NEW must be a PROCEDURE")
+        obj = ObjectValue.create(class_type)
+        self.run_class_initializers(obj, class_type)
 
-        self.call_method(
-            obj,
-            "NEW",
-            arg_exprs,
-            start_class=class_type,
-            context=f"CONSTRUCTOR {class_name}.NEW",
-        )
+        if constructor is not None:
+            self.call_method(
+                obj,
+                "NEW",
+                [],
+                start_class=class_type,
+                context=f"CONSTRUCTOR {class_name}.NEW",
+                prepared=prepared_constructor,
+            )
 
         return obj
 
@@ -437,6 +528,7 @@ class Interpreter:
         *,
         start_class: Any,
         context: str,
+        prepared: list[tuple[str, str, Any, Any]] | None = None,
     ) -> tuple[Any, str]:
         method, owner_class = start_class.find_method(method_name)
 
@@ -445,11 +537,12 @@ class Interpreter:
                 f"CLASS {start_class.name!r} has no method {method_name!r}"
             )
 
-        prepared = self.prepare_arguments(
-            method.params,
-            arg_exprs,
-            context,
-        )
+        if prepared is None:
+            prepared = self.prepare_arguments(
+                method.params,
+                arg_exprs,
+                context,
+            )
 
         return_type = (
             self.runtime.resolve_type_spec(method.return_type)
@@ -630,6 +723,22 @@ class Interpreter:
             else:
                 self.env.define(name, type_spec, payload)
 
+    def pointer_reference(self, pointer: Any) -> Reference:
+        if not isinstance(pointer, PointerValue):
+            raise PseudoRuntimeError(
+                f"Expected POINTER, got {runtime_type_name(pointer)}"
+            )
+
+        if pointer.reference is None:
+            raise PseudoRuntimeError("Cannot dereference an uninitialised POINTER")
+
+        return Reference(
+            type_spec=pointer.type_spec.target_type,
+            getter=pointer.reference.get,
+            setter=pointer.reference.set,
+            description="POINTER dereference",
+        )
+
     def make_reference(self, expr: Any) -> Reference:
         if isinstance(expr, VariableExpr):
             binding = self.env.get_binding(expr.name)
@@ -705,7 +814,14 @@ class Interpreter:
                 "BYREF field argument is not a record or object"
             )
 
-        raise PseudoRuntimeError("BYREF argument must be a variable, ARRAY element or record field")
+        if isinstance(expr, DerefExpr):
+            pointer = self.eval(expr.pointer_expr)
+            return self.pointer_reference(pointer)
+
+        raise PseudoRuntimeError(
+            "BYREF argument must be a variable, ARRAY element, "
+            "record field or POINTER dereference"
+        )
 
     def assign_target(self, target: Any, value: Any):
         if isinstance(target, VarTarget):
@@ -761,6 +877,11 @@ class Interpreter:
                 "Field assignment target is not a record or object"
             )
 
+        if isinstance(target, DerefTarget):
+            pointer = self.eval(target.pointer_expr)
+            self.pointer_reference(pointer).set(value)
+            return
+
         raise PseudoRuntimeError(f"Invalid assignment target {target!r}")
 
     def target_type(self, target: Any) -> Any:
@@ -806,11 +927,23 @@ class Interpreter:
 
             raise PseudoRuntimeError("Field target is not a record or object")
 
+        if isinstance(target, DerefTarget):
+            pointer = self.eval(target.pointer_expr)
+            return self.pointer_reference(pointer).type_spec
+
         raise PseudoRuntimeError(f"Invalid target {target!r}")
 
     def eval(self, expr: Any) -> Any:
         if isinstance(expr, LiteralExpr):
             return expr.value
+
+        if isinstance(expr, AddressOfExpr):
+            reference = self.make_reference(expr.target_expr)
+            return PointerValue(PointerType(reference.type_spec), reference)
+
+        if isinstance(expr, DerefExpr):
+            pointer = self.eval(expr.pointer_expr)
+            return self.pointer_reference(pointer).get()
 
         if isinstance(expr, NewExpr):
             return self.create_object(expr.class_name, expr.args)
@@ -957,10 +1090,10 @@ class Interpreter:
             return left_i % right_i
 
         if t == T.AMP:
-            if not isinstance(left, str) or not isinstance(right, str):
-                raise PseudoRuntimeError("& requires STRING or CHAR operands")
+            if type(left) is not str or type(right) is not str:
+                raise PseudoRuntimeError("& requires STRING operands")
 
-            return str(left) + str(right)
+            return left + right
 
         if t == T.EQUAL:
             return self.equal_values(left, right)
@@ -999,6 +1132,24 @@ class Interpreter:
 
         if isinstance(left, DateValue) and isinstance(right, DateValue):
             return left.key() == right.key()
+
+        if isinstance(left, SetValue) and isinstance(right, SetValue):
+            if not same_type(left.type_spec, right.type_spec):
+                raise PseudoRuntimeError(
+                    f"Cannot compare {runtime_type_name(left)} "
+                    f"with {runtime_type_name(right)}"
+                )
+
+            return set(left.elements.keys()) == set(right.elements.keys())
+
+        if isinstance(left, PointerValue) and isinstance(right, PointerValue):
+            if not same_type(left.type_spec, right.type_spec):
+                raise PseudoRuntimeError(
+                    f"Cannot compare {runtime_type_name(left)} "
+                    f"with {runtime_type_name(right)}"
+                )
+
+            return left.reference is right.reference
 
         if isinstance(left, EnumValue) and isinstance(right, EnumValue):
             if not same_type(left.type_spec, right.type_spec):
@@ -1190,8 +1341,8 @@ class Interpreter:
 
     @staticmethod
     def require_string(value: Any) -> str:
-        if isinstance(value, str):
-            return str(value)
+        if type(value) is str:
+            return value
 
         raise PseudoRuntimeError(
             f"Expected STRING, got {runtime_type_name(value)}"
@@ -1201,9 +1352,6 @@ class Interpreter:
     def require_char(value: Any) -> Char:
         if isinstance(value, Char):
             return value
-
-        if isinstance(value, str) and len(value) == 1:
-            return Char(value)
 
         raise PseudoRuntimeError(
             f"Expected CHAR, got {runtime_type_name(value)}"

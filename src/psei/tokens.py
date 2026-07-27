@@ -83,6 +83,8 @@ class T:
 
     TYPE = "TYPE"
     ENDTYPE = "ENDTYPE"
+    DEFINE = "DEFINE"
+    SET = "SET"
 
     CLASS = "CLASS"
     ENDCLASS = "ENDCLASS"
@@ -95,6 +97,7 @@ class T:
     DIV = "DIV"
     MOD = "MOD"
     AMP = "AMP"             # &
+    CARET = "CARET"         # ^
 
     EQUAL = "EQUAL"
     NOT_EQUAL = "NOT_EQUAL"
@@ -190,6 +193,8 @@ KEYWORDS = {
 
     "TYPE": T.TYPE,
     "ENDTYPE": T.ENDTYPE,
+    "DEFINE": T.DEFINE,
+    "SET": T.SET,
 
     "CLASS": T.CLASS,
     "ENDCLASS": T.ENDCLASS,

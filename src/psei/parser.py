@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .ast_nodes import (
+    AddressOfExpr,
     ArrayAccessExpr,
     ArrayTarget,
     ArrayType,
@@ -15,6 +16,9 @@ from .ast_nodes import (
     CloseFileStmt,
     ConstantStmt,
     DeclareStmt,
+    DefineSetStmt,
+    DerefExpr,
+    DerefTarget,
     FieldAccessExpr,
     FieldTarget,
     ForStmt,
@@ -31,6 +35,7 @@ from .ast_nodes import (
     OpenFileStmt,
     OutputStmt,
     Param,
+    PointerType,
     ProcedureDecl,
     Program,
     PutRecordStmt,
@@ -39,10 +44,13 @@ from .ast_nodes import (
     RepeatStmt,
     ReturnStmt,
     SeekStmt,
+    SetTypeSpec,
     SourceSpan,
     SuperExpr,
     TypeDeclEnum,
+    TypeDeclPointer,
     TypeDeclRecord,
+    TypeDeclSet,
     UnaryExpr,
     UserTypeRef,
     VariableExpr,
@@ -157,6 +165,9 @@ class Parser:
 
         if self.match(T.CONSTANT):
             return self.with_span(self.parse_constant(), start_tok)
+
+        if self.match(T.DEFINE):
+            return self.with_span(self.parse_define_set(), start_tok)
 
         if self.match(T.TYPE):
             return self.with_span(self.parse_type_decl(), start_tok)
@@ -336,6 +347,23 @@ class Parser:
         expr = self.parse_literal_only()
         return ConstantStmt(name, expr)
 
+    def parse_define_set(self):
+        name = self.consume(T.IDENT, "Expected identifier after DEFINE").lexeme
+        self.consume(T.LPAREN, "Expected '(' before SET values")
+
+        values = []
+
+        if not self.check(T.RPAREN):
+            values.append(self.parse_expression())
+
+            while self.match(T.COMMA):
+                values.append(self.parse_expression())
+
+        self.consume(T.RPAREN, "Expected ')' after SET values")
+        self.consume(T.COLON, "Expected ':' after DEFINE values")
+        type_spec = self.parse_type()
+        return DefineSetStmt(name, values, type_spec)
+
     def parse_file_mode(self) -> str:
         if self.check_any(self.FILE_MODE_TOKENS):
             return self.advance().type
@@ -347,6 +375,15 @@ class Parser:
         name = self.consume(T.IDENT, "Expected type name after TYPE").lexeme
 
         if self.match(T.EQUAL):
+            if self.match(T.SET):
+                self.consume(T.OF, "Expected OF after SET")
+                element_type = self.parse_type()
+                return TypeDeclSet(name, element_type)
+
+            if self.match(T.CARET):
+                target_type = self.parse_type()
+                return TypeDeclPointer(name, target_type)
+
             self.consume(T.LPAREN, "Expected '(' before enumerated values")
 
             values = [
@@ -645,6 +682,13 @@ class Parser:
             i += 1
 
     def parse_type(self):
+        if self.match(T.CARET):
+            return PointerType(self.parse_type())
+
+        if self.match(T.SET):
+            self.consume(T.OF, "Expected OF after SET")
+            return SetTypeSpec(self.parse_type())
+
         if self.match(T.ARRAY):
             self.consume(T.LBRACKET, "Expected '[' after ARRAY")
             bounds = []
@@ -742,6 +786,11 @@ class Parser:
                 expr = ArrayAccessExpr(expr, indices)
                 continue
 
+            if self.match(T.CARET):
+                target = DerefTarget(expr)
+                expr = DerefExpr(expr)
+                continue
+
             if self.check(T.DOT):
                 before_dot = self.current
                 self.advance()
@@ -776,6 +825,10 @@ class Parser:
         return left
 
     def parse_unary(self):
+        if self.match(T.CARET):
+            target = self.parse_unary()
+            return AddressOfExpr(target)
+
         if self.match(T.MINUS) or self.match(T.NOT):
             op = self.previous()
             right = self.parse_unary()
@@ -826,6 +879,10 @@ class Parser:
 
                     continue
 
+                if self.match(T.CARET):
+                    expr = DerefExpr(expr)
+                    continue
+
                 break
 
             return expr
@@ -854,6 +911,10 @@ class Parser:
                     else:
                         expr = FieldAccessExpr(expr, member_name)
 
+                    continue
+
+                if self.match(T.CARET):
+                    expr = DerefExpr(expr)
                     continue
 
                 break

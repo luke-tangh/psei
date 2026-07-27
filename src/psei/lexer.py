@@ -99,6 +99,9 @@ class Lexer:
             elif c == "&":
                 self.add_token(T.AMP)
 
+            elif c == "^":
+                self.add_token(T.CARET)
+
             elif c == "(":
                 self.add_token(T.LPAREN)
 

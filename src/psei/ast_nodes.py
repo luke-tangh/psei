@@ -17,6 +17,16 @@ class ArrayType:
 
 
 @dataclass(frozen=True)
+class PointerType:
+    target_type: Any
+
+
+@dataclass(frozen=True)
+class SetTypeSpec:
+    element_type: Any
+
+
+@dataclass(frozen=True)
 class UserTypeRef:
     name: str
 
@@ -37,6 +47,14 @@ class DeclareStmt:
 class ConstantStmt:
     name: str
     expr: Any
+    span: SourceSpan | None = None
+
+
+@dataclass
+class DefineSetStmt:
+    name: str
+    values: list[Any]
+    type_spec: Any
     span: SourceSpan | None = None
 
 
@@ -168,6 +186,20 @@ class TypeDeclEnum:
 
 
 @dataclass
+class TypeDeclPointer:
+    name: str
+    target_type: Any
+    span: SourceSpan | None = None
+
+
+@dataclass
+class TypeDeclSet:
+    name: str
+    element_type: Any
+    span: SourceSpan | None = None
+
+
+@dataclass
 class TypeDeclRecord:
     name: str
     fields: list[RecordField]
@@ -268,6 +300,11 @@ class FieldTarget:
 
 
 @dataclass
+class DerefTarget:
+    pointer_expr: Any
+
+
+@dataclass
 class LiteralExpr:
     value: Any
 
@@ -287,6 +324,16 @@ class ArrayAccessExpr:
 class FieldAccessExpr:
     record_expr: Any
     field_name: str
+
+
+@dataclass
+class AddressOfExpr:
+    target_expr: Any
+
+
+@dataclass
+class DerefExpr:
+    pointer_expr: Any
 
 
 @dataclass
