@@ -12,6 +12,32 @@ It implements a practical subset of Cambridge-style pseudocode and can be used f
 
 > `psei` is not an official Cambridge tool. It is also not a full exam-format validator. Its goal is to provide a useful, testable interpreter for a Cambridge-style pseudocode subset.
 
+## Quick start
+
+Install as a CLI tool:
+
+```bash
+pipx install psei
+```
+
+Or install with pip:
+
+```bash
+python -m pip install psei
+```
+
+Create `hello.pseudo`:
+
+```text
+OUTPUT "Hello"
+```
+
+Run it:
+
+```bash
+pseudo run hello.pseudo
+```
+
 ---
 
 ## Contents
