@@ -87,6 +87,13 @@ class ReturnSignal(Exception):
 
 
 class Interpreter:
+    SET_BUILTIN_PROCEDURES = {
+        "SETADD",
+        "SETREMOVE",
+        "SETDISCARD",
+        "SETCLEAR",
+    }
+
     def __init__(self, runtime: Runtime):
         self.runtime = runtime
         self.method_context: list[tuple[ObjectValue, Any]] = []
@@ -722,6 +729,15 @@ class Interpreter:
             i += step
 
     def call_procedure(self, name: str, arg_exprs: list[Any]):
+        upper = name.upper()
+
+        if (
+            not self.runtime.has_procedure(name)
+            and upper in self.SET_BUILTIN_PROCEDURES
+        ):
+            self.call_set_builtin_procedure(upper, arg_exprs)
+            return
+
         decl = self.runtime.get_procedure(name)
         context = f"PROCEDURE {decl.name}"
         prepared = self.prepare_arguments(
@@ -769,6 +785,42 @@ class Interpreter:
                     return coerce_value(signal.value, return_type)
 
         raise PseudoRuntimeError(f"FUNCTION {decl.name!r} did not RETURN a value")
+
+    def call_set_builtin_procedure(self, name: str, arg_exprs: list[Any]):
+        expected = 1 if name == "SETCLEAR" else 2
+        self.require_arg_count(name, arg_exprs, expected)
+
+        reference = self.make_reference(arg_exprs[0])
+        current = self.require_set(reference.get())
+
+        if name == "SETCLEAR":
+            reference.set(SetValue.create(current.type_spec))
+            return
+
+        singleton = make_set_value(
+            current.type_spec,
+            [self.eval(arg_exprs[1])],
+        )
+        key = next(iter(singleton.elements))
+
+        if name == "SETADD":
+            values = list(current.elements.values())
+
+            if key not in current.elements:
+                values.append(singleton.elements[key])
+
+            reference.set(make_set_value(current.type_spec, values))
+            return
+
+        if name == "SETREMOVE" and key not in current.elements:
+            raise PseudoRuntimeError("SETREMOVE element is not present in SET")
+
+        values = [
+            value
+            for element_key, value in current.elements.items()
+            if element_key != key
+        ]
+        reference.set(make_set_value(current.type_spec, values))
 
     def prepare_arguments(
         self,
@@ -1412,7 +1464,107 @@ class Interpreter:
 
             return self.runtime.rng.random() * x
 
+        if upper in {
+            "UNION",
+            "INTERSECTION",
+            "DIFFERENCE",
+            "SYMMETRICDIFFERENCE",
+        }:
+            self.require_arg_count(upper, args, 2)
+            left, right = self.require_compatible_sets(upper, args[0], args[1])
+            left_keys = set(left.elements)
+            right_keys = set(right.elements)
+
+            if upper == "UNION":
+                keys = left_keys | right_keys
+            elif upper == "INTERSECTION":
+                keys = left_keys & right_keys
+            elif upper == "DIFFERENCE":
+                keys = left_keys - right_keys
+            else:
+                keys = left_keys ^ right_keys
+
+            values = [
+                value
+                for key, value in left.elements.items()
+                if key in keys
+            ]
+            values.extend(
+                value
+                for key, value in right.elements.items()
+                if key in keys and key not in left.elements
+            )
+            return make_set_value(left.type_spec, values)
+
+        if upper == "CONTAINS":
+            self.require_arg_count(upper, args, 2)
+            set_value = self.require_set(args[0])
+            singleton = make_set_value(set_value.type_spec, [args[1]])
+            key = next(iter(singleton.elements))
+            return key in set_value.elements
+
+        if upper == "CARDINALITY":
+            self.require_arg_count(upper, args, 1)
+            return len(self.require_set(args[0]).elements)
+
+        if upper == "ISEMPTY":
+            self.require_arg_count(upper, args, 1)
+            return not self.require_set(args[0]).elements
+
+        if upper in {
+            "ISSUBSET",
+            "ISPROPERSUBSET",
+            "ISSUPERSET",
+            "ISPROPERSUPERSET",
+            "ISDISJOINT",
+        }:
+            self.require_arg_count(upper, args, 2)
+            left, right = self.require_compatible_sets(upper, args[0], args[1])
+            left_keys = set(left.elements)
+            right_keys = set(right.elements)
+
+            if upper == "ISSUBSET":
+                return left_keys <= right_keys
+
+            if upper == "ISPROPERSUBSET":
+                return left_keys < right_keys
+
+            if upper == "ISSUPERSET":
+                return left_keys >= right_keys
+
+            if upper == "ISPROPERSUPERSET":
+                return left_keys > right_keys
+
+            return left_keys.isdisjoint(right_keys)
+
         raise PseudoRuntimeError(f"Unknown function {name!r}")
+
+    @staticmethod
+    def require_set(value: Any) -> SetValue:
+        if isinstance(value, SetValue):
+            return value
+
+        raise PseudoRuntimeError(
+            f"Expected SET, got {runtime_type_name(value)}"
+        )
+
+    def require_compatible_sets(
+        self,
+        operation: str,
+        left: Any,
+        right: Any,
+    ) -> tuple[SetValue, SetValue]:
+        left_set = self.require_set(left)
+        right_set = self.require_set(right)
+
+        if not same_type(left_set.type_spec, right_set.type_spec):
+            raise PseudoRuntimeError(
+                f"{operation} requires SET operands of the same type, got "
+                f"{type_to_str(left_set.type_spec)} and "
+                f"{type_to_str(right_set.type_spec)}"
+            )
+
+        return left_set, right_set
 
     @staticmethod
     def integer_div(left_i: int, right_i: int) -> int:

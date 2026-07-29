@@ -634,7 +634,10 @@ def debug_value(value: Any) -> str:
         return value.name
 
     if isinstance(value, SetValue):
-        return f"<{type_to_str(value.type_spec)}>"
+        return "{" + ", ".join(
+            debug_value(element)
+            for element in value.elements.values()
+        ) + "}"
 
     if isinstance(value, PointerValue):
         return str(value)
@@ -671,7 +674,10 @@ def output_value(value: Any) -> str:
         return value.name
 
     if isinstance(value, SetValue):
-        return f"<{type_to_str(value.type_spec)}>"
+        return "{" + ", ".join(
+            output_value(element)
+            for element in value.elements.values()
+        ) + "}"
 
     if isinstance(value, PointerValue):
         return str(value)

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Add complete scalar set operations, including algebra, membership,
+  cardinality, subset/superset predicates and mutable-set procedures
+- Render set values using deterministic brace notation
+
 ## 0.1.1 - 2026-07-29
 
 ### Fixed

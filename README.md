@@ -923,7 +923,58 @@ DEFINE Vowels ('A','E','I','O','U') : LetterSet
 OUTPUT Vowels
 ```
 
-Sets currently support declaration, definition, assignment and placeholder output. A full set operation library is not implemented yet.
+Output:
+
+```text
+{A, E, I, O, U}
+```
+
+`DEFINE` creates a constant set. Use `DECLARE` when the set needs to be
+changed:
+
+```text
+DECLARE Selected : LetterSet
+
+Selected ← Vowels
+CALL SETADD(Selected, 'Y')
+CALL SETREMOVE(Selected, 'A')
+```
+
+Set assignment uses copy semantics. The operations below return a new set and
+do not change either operand:
+
+```text
+Combined ← UNION(SetA, SetB)
+Shared ← INTERSECTION(SetA, SetB)
+OnlyA ← DIFFERENCE(SetA, SetB)
+EitherButNotBoth ← SYMMETRICDIFFERENCE(SetA, SetB)
+```
+
+Set query functions:
+
+| Function | Result |
+|---|---|
+| `CONTAINS(SetValue, Element)` | Whether the element belongs to the set |
+| `CARDINALITY(SetValue)` | Number of distinct elements |
+| `ISEMPTY(SetValue)` | Whether the set is empty |
+| `ISSUBSET(SetA, SetB)` | Whether every element of `SetA` is in `SetB` |
+| `ISPROPERSUBSET(SetA, SetB)` | Whether `SetA` is a strict subset of `SetB` |
+| `ISSUPERSET(SetA, SetB)` | Whether `SetA` contains every element of `SetB` |
+| `ISPROPERSUPERSET(SetA, SetB)` | Whether `SetA` is a strict superset of `SetB` |
+| `ISDISJOINT(SetA, SetB)` | Whether the sets have no elements in common |
+
+Set mutation procedures:
+
+| Procedure | Effect |
+|---|---|
+| `CALL SETADD(SetValue, Element)` | Adds an element; existing elements are unchanged |
+| `CALL SETREMOVE(SetValue, Element)` | Removes an element, or raises an error if absent |
+| `CALL SETDISCARD(SetValue, Element)` | Removes an element if present |
+| `CALL SETCLEAR(SetValue)` | Removes all elements |
+
+The Cambridge pseudocode guide does not define standard notation for these
+operations. These named functions and procedures are a documented `psei`
+extension.
 
 ---
 
@@ -1241,6 +1292,18 @@ Supported built-in functions:
 | `INT(x)` | Returns the integer part of a number |
 | `RAND(x)` | Returns a random `REAL` in the range `[0, x)` |
 | `EOF(file)` | Returns whether an open text file has reached end-of-file |
+| `UNION(SetA, SetB)` | Returns the union of two sets |
+| `INTERSECTION(SetA, SetB)` | Returns the intersection of two sets |
+| `DIFFERENCE(SetA, SetB)` | Returns the elements in `SetA` but not `SetB` |
+| `SYMMETRICDIFFERENCE(SetA, SetB)` | Returns elements in exactly one operand |
+| `CONTAINS(SetValue, Element)` | Tests set membership |
+| `CARDINALITY(SetValue)` | Returns the number of elements |
+| `ISEMPTY(SetValue)` | Tests whether a set is empty |
+| `ISSUBSET(SetA, SetB)` | Tests subset inclusion |
+| `ISPROPERSUBSET(SetA, SetB)` | Tests strict subset inclusion |
+| `ISSUPERSET(SetA, SetB)` | Tests superset inclusion |
+| `ISPROPERSUPERSET(SetA, SetB)` | Tests strict superset inclusion |
+| `ISDISJOINT(SetA, SetB)` | Tests whether two sets are disjoint |
 
 Example:
 
@@ -1401,7 +1464,6 @@ Not fully implemented:
   - checking that keywords are uppercase
   - checking indentation
   - checking mixed-case identifier style
-- a complete set operation library
 - full compiler-style static analysis
 - process-level sandboxing
 
