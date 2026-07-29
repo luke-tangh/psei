@@ -2,7 +2,8 @@ import pytest
 
 from psei.errors import PseudoRuntimeError
 from psei.runner import run_source
-from psei.runtime import Runtime
+from psei.runtime import LocalFileSystem, Runtime
+from psei.tokens import T
 
 
 def run_capture(source: str, *, strict: bool = False):
@@ -88,6 +89,63 @@ OUTPUT Pupil.LastName, ":", Pupil.YearGroup
 """
 
     assert run_capture(source) == ["Ali:12", "Changed:99"]
+
+
+def test_text_file_cannot_be_reopened_as_random_file():
+    source = """
+OPENFILE "Mixed.dat" FOR WRITE
+WRITEFILE "Mixed.dat", "text"
+CLOSEFILE "Mixed.dat"
+
+OPENFILE "Mixed.dat" FOR RANDOM
+"""
+
+    with pytest.raises(PseudoRuntimeError, match="not a valid psei random file"):
+        run_source(source)
+
+
+def test_random_file_cannot_be_reopened_as_text_file():
+    source = """
+OPENFILE "Mixed.dat" FOR RANDOM
+SEEK "Mixed.dat", 0
+PUTRECORD "Mixed.dat", 42
+CLOSEFILE "Mixed.dat"
+
+OPENFILE "Mixed.dat" FOR READ
+"""
+
+    with pytest.raises(PseudoRuntimeError, match="cannot be opened for READ"):
+        run_source(source)
+
+
+def test_local_write_mode_truncates_file_when_opened(tmp_path):
+    path = tmp_path / "Existing.txt"
+    path.write_text("old data\n", encoding="utf-8")
+    file_system = LocalFileSystem(tmp_path)
+
+    file_system.open_file("Existing.txt", T.WRITE)
+
+    assert path.read_text(encoding="utf-8") == ""
+
+    file_system.close_file("Existing.txt")
+
+
+def test_local_random_file_cannot_be_opened_as_text(tmp_path):
+    file_system = LocalFileSystem(tmp_path)
+    runtime = Runtime(file_system=file_system)
+
+    run_source(
+        """
+OPENFILE "Data.dat" FOR RANDOM
+SEEK "Data.dat", 0
+PUTRECORD "Data.dat", 42
+CLOSEFILE "Data.dat"
+""",
+        runtime,
+    )
+
+    with pytest.raises(PseudoRuntimeError, match="cannot be opened for READ"):
+        run_source('OPENFILE "Data.dat" FOR READ', runtime)
 
 
 def test_readfile_target_must_be_string():

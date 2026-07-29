@@ -141,22 +141,7 @@ class Lexer:
             if c == "\n":
                 self.error("Unterminated string literal")
 
-            if c == "\\":
-                self.advance()
-
-                if self.is_at_end():
-                    self.error("Unterminated string escape")
-
-                esc = self.advance()
-                mapping = {
-                    "n": "\n",
-                    "t": "\t",
-                    '"': '"',
-                    "\\": "\\",
-                }
-                value += mapping.get(esc, esc)
-            else:
-                value += self.advance()
+            value += self.advance()
 
         if self.is_at_end():
             self.error("Unterminated string literal")

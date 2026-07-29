@@ -2,6 +2,7 @@ import pytest
 
 from psei.errors import PseudoRuntimeError
 from psei.lexer import Lexer
+from psei.runner import run_source
 from psei.runtime import Runtime
 from psei.tokens import T
 
@@ -11,6 +12,15 @@ def test_byval_byref_are_keywords():
     types = [token.type for token in tokens]
 
     assert types == [T.BYVAL, T.BYREF, T.EOF]
+
+
+def test_backslashes_in_strings_are_literal_characters():
+    output = []
+    runtime = Runtime(output_writer=output.append)
+
+    run_source(r'OUTPUT "data\file.txt", ":", "A\qB"', runtime)
+
+    assert output == [r"data\file.txt:A\qB"]
 
 
 def test_scope_stack_resolves_assignment_to_parent():

@@ -1139,11 +1139,17 @@ class Interpreter:
         t = op.type
 
         if t == T.PLUS:
+            if isinstance(left, EnumValue) and type(right) is int:
+                return self.offset_enum(left, right)
+
             self.require_number(left)
             self.require_number(right)
             return left + right
 
         if t == T.MINUS:
+            if isinstance(left, EnumValue) and type(right) is int:
+                return self.offset_enum(left, -right)
+
             self.require_number(left)
             self.require_number(right)
             return left - right
@@ -1285,6 +1291,19 @@ class Interpreter:
             f"Cannot compare {runtime_type_name(left)} "
             f"with {runtime_type_name(right)}"
         )
+
+    @staticmethod
+    def offset_enum(value: EnumValue, offset: int) -> EnumValue:
+        ordinal = value.ordinal + offset
+
+        if ordinal < 0 or ordinal >= len(value.type_spec.values):
+            raise PseudoRuntimeError(
+                f"Enumerated value offset is out of range for "
+                f"{value.type_spec.name}"
+            )
+
+        name = value.type_spec.values[ordinal]
+        return EnumValue(value.type_spec, name, ordinal)
 
     def compare_values(self, left: Any, op_type: str, right: Any) -> bool:
         if self.is_number(left) and self.is_number(right):

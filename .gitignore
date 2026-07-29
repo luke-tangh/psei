@@ -26,5 +26,5 @@ dist/
 .idea/
 .vscode/
 
-export.sh
-export.txt
+*.pdf
+repomix-output.*

@@ -9,9 +9,16 @@ from psei.errors import PseudoRuntimeError
 from psei.tokens import T
 
 from .oop import NullObjectValue, ObjectValue
-from .serialization import deserialize_random_file, serialize_random_file
+from .serialization import (
+    RANDOM_FILE_FORMAT,
+    deserialize_random_file,
+    serialize_random_file,
+)
 from .types import RecordValue, SetValue, clone_value
 from .values import ArrayValue, PointerValue
+
+
+TEXT_FILE_KIND = "TEXT"
 
 
 @dataclass
@@ -58,6 +65,7 @@ class InMemoryFileSystem:
     def __init__(self):
         self.text_files: dict[str, list[str]] = {}
         self.random_files: dict[str, dict[int, Any]] = {}
+        self.file_kinds: dict[str, str] = {}
         self.open_files: dict[str, FileHandle] = {}
 
     def _normalise(self, file_id: str) -> str:
@@ -89,18 +97,48 @@ class InMemoryFileSystem:
         if key in self.open_files:
             raise PseudoRuntimeError(f"File {file_id!r} is already open")
 
+        kind = self.file_kinds.get(key)
+
+        if kind is None:
+            if key in self.text_files:
+                kind = TEXT_FILE_KIND
+            elif key in self.random_files:
+                kind = T.RANDOM
+
         if mode == T.READ:
+            if kind == T.RANDOM:
+                raise PseudoRuntimeError(
+                    f"Random file {file_id!r} cannot be opened for READ"
+                )
+
             if key not in self.text_files:
                 raise PseudoRuntimeError(f"Text file {file_id!r} does not exist")
 
+            self.file_kinds[key] = TEXT_FILE_KIND
+
         elif mode == T.WRITE:
             self.text_files[key] = []
+            self.random_files.pop(key, None)
+            self.file_kinds[key] = TEXT_FILE_KIND
 
         elif mode == T.APPEND:
+            if kind == T.RANDOM:
+                raise PseudoRuntimeError(
+                    f"Random file {file_id!r} cannot be opened for APPEND"
+                )
+
             self.text_files.setdefault(key, [])
+            self.file_kinds[key] = TEXT_FILE_KIND
 
         elif mode == T.RANDOM:
+            if kind == TEXT_FILE_KIND and self.text_files.get(key):
+                raise PseudoRuntimeError(
+                    f"Text file {file_id!r} is not a valid psei random file"
+                )
+
+            self.text_files.pop(key, None)
             self.random_files.setdefault(key, {})
+            self.file_kinds[key] = T.RANDOM
 
         else:
             raise PseudoRuntimeError(f"Unsupported file mode {mode!r}")
@@ -196,6 +234,21 @@ class LocalFileSystem(InMemoryFileSystem):
     def _normalise(self, file_id: str) -> str:
         return str(self._path(file_id))
 
+    @staticmethod
+    def _is_random_file_text(raw: str) -> bool:
+        if not raw.strip():
+            return False
+
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            return False
+
+        return (
+            isinstance(data, dict)
+            and data.get("format") == RANDOM_FILE_FORMAT
+        )
+
     def open_file(self, file_id: str, mode: str):
         key = self._normalise(file_id)
         path = Path(key)
@@ -207,16 +260,39 @@ class LocalFileSystem(InMemoryFileSystem):
             if not path.exists():
                 raise PseudoRuntimeError(f"Text file {file_id!r} does not exist")
 
-            self.text_files[key] = path.read_text(encoding="utf-8").splitlines()
+            raw = path.read_text(encoding="utf-8")
+
+            if self._is_random_file_text(raw):
+                raise PseudoRuntimeError(
+                    f"Random file {file_id!r} cannot be opened for READ"
+                )
+
+            self.text_files[key] = raw.splitlines()
+            self.random_files.pop(key, None)
+            self.file_kinds[key] = TEXT_FILE_KIND
 
         elif mode == T.WRITE:
             self.text_files[key] = []
+            self.random_files.pop(key, None)
+            self.file_kinds[key] = TEXT_FILE_KIND
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("", encoding="utf-8", newline="\n")
 
         elif mode == T.APPEND:
             if path.exists():
-                self.text_files[key] = path.read_text(encoding="utf-8").splitlines()
+                raw = path.read_text(encoding="utf-8")
+
+                if self._is_random_file_text(raw):
+                    raise PseudoRuntimeError(
+                        f"Random file {file_id!r} cannot be opened for APPEND"
+                    )
+
+                self.text_files[key] = raw.splitlines()
             else:
                 self.text_files[key] = []
+
+            self.random_files.pop(key, None)
+            self.file_kinds[key] = TEXT_FILE_KIND
 
         elif mode == T.RANDOM:
             if path.exists():
@@ -241,6 +317,9 @@ class LocalFileSystem(InMemoryFileSystem):
                     ) from e
             else:
                 self.random_files[key] = {}
+
+            self.text_files.pop(key, None)
+            self.file_kinds[key] = T.RANDOM
 
         else:
             raise PseudoRuntimeError(f"Unsupported file mode {mode!r}")

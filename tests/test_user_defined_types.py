@@ -43,6 +43,40 @@ OUTPUT S
     assert run_capture(source) == ["Spring"]
 
 
+def test_enum_pointer_can_advance_to_next_value():
+    source = """
+TYPE Season = (Spring, Summer, Autumn, Winter)
+TYPE TSeasonPointer = ^Season
+
+DECLARE ThisSeason : Season
+DECLARE NextSeason : Season
+DECLARE MyPointer : TSeasonPointer
+
+ThisSeason ← Spring
+MyPointer ← ^ThisSeason
+NextSeason ← MyPointer^ + 1
+
+OUTPUT NextSeason
+"""
+
+    assert run_capture(source) == ["Summer"]
+
+
+def test_enum_offset_out_of_range_is_error():
+    source = """
+TYPE Season = (Spring, Summer, Autumn, Winter)
+
+DECLARE ThisSeason : Season
+DECLARE NextSeason : Season
+
+ThisSeason ← Winter
+NextSeason ← ThisSeason + 1
+"""
+
+    with pytest.raises(PseudoRuntimeError, match="offset is out of range"):
+        run_source(source)
+
+
 def test_record_assignment_clones_value():
     source = """
 TYPE StudentRecord
