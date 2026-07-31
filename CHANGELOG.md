@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.2 - 2026-07-31
+
 ### Added
 
 - Add a non-executing `cambridge-2027` compliance profile
