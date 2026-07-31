@@ -4,6 +4,12 @@
 
 ### Added
 
+- Add a non-executing `cambridge-2027` compliance profile
+- Add `pseudo check` with text and JSON diagnostics
+- Check keyword case, structural indentation, identifiers, formal syntax and
+  documented `psei` extensions
+- Auto-detect and preprocess examination line numbers
+- Add guide-section conformance tests for the 2027-2029 pseudocode guide
 - Add complete scalar set operations, including algebra, membership,
   cardinality, subset/superset predicates and mutable-set procedures
 - Render set values using deterministic brace notation

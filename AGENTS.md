@@ -25,6 +25,7 @@ Do not silently present a `psei` extension as official Cambridge syntax.
 - `src/psei/lexer.py`: source scanning, literals, identifiers and keywords.
 - `src/psei/tokens.py`: token definitions and keyword table.
 - `src/psei/ast_nodes.py`: AST node definitions.
+- `src/psei/compliance.py`: Cambridge compliance profiles and diagnostics.
 - `src/psei/parser.py`: grammar and AST construction.
 - `src/psei/interpreter.py`: statement execution and expression evaluation.
 - `src/psei/runtime/core.py`: runtime state, scopes, type registration and
@@ -61,6 +62,8 @@ before handing off a change. Useful targets include:
 
 ```bash
 python -m pytest -q tests/test_lexer_and_runtime.py
+python -m pytest -q tests/test_compliance.py
+python -m pytest -q tests/test_cambridge_2027_guide.py
 python -m pytest -q tests/test_user_defined_types.py
 python -m pytest -q tests/test_test_procedures_and_functions.py
 python -m pytest -q tests/test_file_handling.py
@@ -193,18 +196,18 @@ when exact random output matters, and use `tmp_path` for local file tests.
 
 The main known gaps are:
 
-- full Cambridge style validation, including uppercase keywords, indentation
-  and identifier-style checks;
-- optional preprocessing of examination line numbers;
-- a traceable conformance test matrix for the 2027-2029 guide;
+- presentation details that cannot be inferred reliably from plain text,
+  including font choice and wrapped continuation-line alignment;
+- a prescriptive camelCase/PascalCase identifier-name checker beyond the
+  current ASCII and consistent-spelling rules;
 - the syllabus-level ADTs stack, queue, linked list, dictionary and binary
   tree;
 - compiler-style static analysis.
 
-Prefer a separate conformance/checking layer for presentation rules rather than
-making the execution lexer depend on indentation. Because the Cambridge guide
-does not define standard operations for all ADTs, document ADT interfaces as
-`psei` teaching-library extensions unless a primary source defines otherwise.
+Keep presentation rules in `src/psei/compliance.py` rather than making the
+execution lexer depend on indentation. Because the Cambridge guide does not
+define standard operations for all ADTs, document ADT interfaces as `psei`
+teaching-library extensions unless a primary source defines otherwise.
 
 ## Definition of Done
 

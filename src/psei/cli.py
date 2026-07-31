@@ -1,8 +1,15 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 
+from .compliance import (
+    CAMBRIDGE_2027,
+    LINE_NUMBER_MODES,
+    SUPPORTED_PROFILES,
+    check_file,
+)
 from .errors import PseudoError
 from .repl import start_repl
 from .runner import run_file
@@ -20,6 +27,29 @@ def main(argv=None):
     run_cmd.add_argument("file")
     run_cmd.add_argument("--strict", action="store_true")
 
+    check_cmd = sub.add_parser(
+        "check",
+        help="check a pseudocode file against a compliance profile",
+    )
+    check_cmd.add_argument("file")
+    check_cmd.add_argument(
+        "--profile",
+        choices=SUPPORTED_PROFILES,
+        default=CAMBRIDGE_2027,
+    )
+    check_cmd.add_argument(
+        "--line-numbers",
+        choices=LINE_NUMBER_MODES,
+        default="auto",
+        help="how to treat examination line numbers (default: auto)",
+    )
+    check_cmd.add_argument(
+        "--format",
+        choices=("text", "json"),
+        default="text",
+        dest="output_format",
+    )
+
     repl_cmd = sub.add_parser("repl", help="start REPL")
     repl_cmd.add_argument("--strict", action="store_true")
 
@@ -28,6 +58,28 @@ def main(argv=None):
     try:
         if args.command == "run":
             run_file(args.file, strict=args.strict)
+
+        elif args.command == "check":
+            report = check_file(
+                args.file,
+                profile=args.profile,
+                line_numbers=args.line_numbers,
+            )
+
+            if args.output_format == "json":
+                payload = {"file": args.file, **report.to_dict()}
+                print(json.dumps(payload, indent=2))
+            elif report.compliant:
+                print(
+                    f"{args.file}: compliant with profile "
+                    f"{report.profile}"
+                )
+            else:
+                for diagnostic in report.diagnostics:
+                    print(diagnostic.format(args.file))
+
+            if not report.compliant:
+                sys.exit(1)
 
         elif args.command == "repl" or args.command is None:
             strict = getattr(args, "strict", False)

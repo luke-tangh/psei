@@ -9,8 +9,12 @@ It implements a practical subset of Cambridge-style pseudocode and can be used f
 - executing pseudocode from Python tests or applications
 - building teaching examples
 - checking common runtime and type errors
+- checking source against the Cambridge 2027-2029 pseudocode guide
 
-> `psei` is not an official Cambridge tool. It is also not a full exam-format validator. Its goal is to provide a useful, testable interpreter for a Cambridge-style pseudocode subset.
+> `psei` is not an official Cambridge tool. Its compliance profile checks
+> plain-text source rules but cannot validate presentation details such as font
+> choice. Its goal is to provide a useful, testable interpreter and checker for
+> a Cambridge-style pseudocode subset.
 
 ## Quick start
 
@@ -49,6 +53,7 @@ pseudo run hello.pseudo
 - [Python API usage](#python-api-usage)
 - [Pseudocode examples](#pseudocode-examples)
 - [Strict mode](#strict-mode)
+- [Cambridge 2027 compliance checking](#cambridge-2027-compliance-checking)
 - [Resource limits](#resource-limits)
 - [File handling](#file-handling)
 - [User-defined types](#user-defined-types)
@@ -281,12 +286,44 @@ Example:
 pseudo run examples/errors/strict_ascii_assignment.pseudo --strict
 ```
 
+### Check Cambridge 2027 compliance
+
+Check syntax and presentation without executing the program:
+
+```bash
+pseudo check path/to/program.pseudo
+```
+
+The default profile covers the Cambridge pseudocode guide for examinations in
+2027, 2028 and 2029:
+
+```bash
+pseudo check path/to/program.pseudo --profile cambridge-2027
+```
+
+Use JSON output for editors, CI or other tools:
+
+```bash
+pseudo check path/to/program.pseudo --format json
+```
+
+Examination line numbers are detected automatically. Override detection when
+needed:
+
+```bash
+pseudo check path/to/program.pseudo --line-numbers present
+pseudo check path/to/program.pseudo --line-numbers absent
+```
+
 ### CLI error behavior
 
 If a program produces a lexical, parse or runtime error:
 
 - the error message is written to `stderr`
 - the process exits with status code `1`
+
+`pseudo check` exits with status code `1` when it reports any error or warning.
+A compliant file exits with status code `0`.
 
 ---
 
@@ -552,7 +589,8 @@ Output:
 
 ## Strict mode
 
-Strict mode is a limited Cambridge-style guardrail. It is not a complete style or exam-format validator.
+Strict mode is a runtime guardrail. Use `pseudo check` for Cambridge style and
+exam-format validation without executing the program.
 
 Enable strict mode from the command line:
 
@@ -601,6 +639,76 @@ Both modes still perform core runtime checks, including:
 - procedure/function arity checks
 - function return type checks
 - `BYREF` lvalue and type checks
+
+---
+
+## Cambridge 2027 compliance checking
+
+The `cambridge-2027` profile checks source code against the Cambridge
+International AS & A Level Computer Science 9618 pseudocode guide for
+examinations in 2027, 2028 and 2029.
+
+It performs static checking only. It parses the source but never executes it,
+reads pseudocode input or opens pseudocode files.
+
+The profile currently checks:
+
+- upper-case Cambridge keywords and standard function names
+- three-space structural indentation and tab usage
+- the Cambridge `←` assignment operator
+- ASCII identifier characters
+- consistent case-insensitive identifier spelling
+- lexer and parser compatibility with the formal guide syntax
+- examination line numbers, including optional preprocessing before parsing
+- uses of documented `psei` operations that are not defined by the guide
+- the guide's page 19 `CALL Beep` inconsistency against the formal
+  `CALL Beep()` grammar in section 8.1
+
+Diagnostics have stable codes and either `error` or `warning` severity:
+
+| Code | Meaning |
+|---|---|
+| `C2027-A001` | Non-Cambridge assignment operator |
+| `C2027-C001` | Procedure call missing formal parentheses |
+| `C2027-I001` | Tab used for indentation |
+| `C2027-I002` | Structural indentation differs from three-space nesting |
+| `C2027-ID001` | Inconsistent case-insensitive identifier spelling |
+| `C2027-ID002` | Non-ASCII identifier character |
+| `C2027-K001` | Keyword or standard function name is not upper-case |
+| `C2027-L001` | Other lexical error |
+| `C2027-N001` | Line numbers do not increase |
+| `C2027-P001` | Parser error against the formal syntax |
+| `C2027-X001` | Documented `psei` extension outside the guide |
+
+Warnings are compliance failures but do not imply that normal, non-strict
+execution would fail. For example, normal execution accepts lower-case
+keywords while the compliance profile reports them.
+
+Use the checker from Python:
+
+```python
+from psei import check_file, check_source
+
+report = check_source("""
+DECLARE Count : INTEGER
+Count ← 1
+OUTPUT Count
+""")
+
+assert report.compliant
+
+file_report = check_file("program.pseudo")
+
+for diagnostic in file_report.diagnostics:
+    print(diagnostic.format("program.pseudo"))
+```
+
+`line_numbers` can be set to `"auto"`, `"present"` or `"absent"` in the
+Python API. The default is `"auto"`.
+
+The checker does not yet perform full compiler-style static analysis. It does
+not, for example, prove that every variable is declared and initialized or
+that every function path returns a value.
 
 ---
 
@@ -1410,6 +1518,7 @@ psei/
 │       ├── lexer.py
 │       ├── parser.py
 │       ├── ast_nodes.py
+│       ├── compliance.py
 │       ├── interpreter.py
 │       ├── runner.py
 │       ├── cli.py
@@ -1436,6 +1545,7 @@ Main modules:
 | `lexer.py` | Lexical analysis |
 | `parser.py` | Parsing and AST construction |
 | `ast_nodes.py` | AST node definitions |
+| `compliance.py` | Cambridge compliance profiles and diagnostics |
 | `interpreter.py` | AST execution |
 | `runtime/core.py` | Runtime object, scopes and limits |
 | `runtime/environment.py` | Variables, constants and references |
@@ -1450,7 +1560,9 @@ Main modules:
 
 ## Current limitations
 
-`psei` implements a practical Cambridge-style pseudocode subset. It is not a complete programming language implementation or a full Cambridge exam-format checker.
+`psei` implements a practical Cambridge-style pseudocode subset and a
+Cambridge 2027-2029 source compliance profile. It is not an official Cambridge
+tool or a complete programming language implementation.
 
 Not fully implemented:
 
@@ -1460,10 +1572,10 @@ Not fully implemented:
   - linked list
   - dictionary
   - binary tree
-- full style validation, such as:
-  - checking that keywords are uppercase
-  - checking indentation
-  - checking mixed-case identifier style
+- presentation checks that cannot be inferred reliably from plain text, such
+  as font choice and the alignment of wrapped continuation lines
+- a prescriptive camelCase/PascalCase identifier-name checker; the current
+  profile checks ASCII characters and consistent case-insensitive spelling
 - full compiler-style static analysis
 - process-level sandboxing
 
