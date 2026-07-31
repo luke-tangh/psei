@@ -1,18 +1,14 @@
-[build-system]
-requires = ["setuptools>=77"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "psei"
 version = "0.1.2"
 description = "Minimal Cambridge-style pseudocode interpreter"
-readme = { file = "README.md", content-type = "text/markdown" }
+readme = "README.md"
+authors = [
+    { name = "Luke Tang", email = "Luke.TangH@outlook.com" }
+]
 requires-python = ">=3.10"
 license = "MIT"
 license-files = ["LICENSE"]
-authors = [
-  { name = "Luke Tang" }
-]
 keywords = [
   "pseudocode",
   "interpreter",
@@ -33,6 +29,7 @@ classifiers = [
   "Topic :: Education",
   "Topic :: Software Development :: Interpreters"
 ]
+dependencies = []
 
 [project.urls]
 Homepage = "https://github.com/luke-tangh/psei"
@@ -43,15 +40,17 @@ Issues = "https://github.com/luke-tangh/psei/issues"
 pseudo = "psei.cli:main"
 psei = "psei.cli:main"
 
-[project.optional-dependencies]
-dev = [
-  "pytest>=8.0"
-]
-
-[tool.setuptools.packages.find]
-where = ["src"]
-include = ["psei*"]
+[build-system]
+requires = ["uv_build>=0.12.0,<0.13.0"]
+build-backend = "uv_build"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "build>=1.5.0",
+    "pytest>=9.1.1",
+    "twine>=7.0.0",
+]

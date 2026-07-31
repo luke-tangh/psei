@@ -44,32 +44,44 @@ Do not silently present a `psei` extension as official Cambridge syntax.
 
 ## Setup and Validation
 
-Use Python 3.10 or later.
+Use Python 3.10 through 3.14. The default local development version is recorded
+in `.python-version`.
 
 ```bash
-python -m pip install -e ".[dev]"
-python -m pytest -q
+uv sync --locked
+uv run --locked pytest -q
 ```
 
-If pytest output capture is broken in the local Codex desktop environment, use:
+In the Codex desktop sandbox, `~/.cache/uv` may be read-only. Put the uv cache
+in `/tmp` and use copy mode:
 
 ```bash
-python -m pytest -q -s
+UV_CACHE_DIR=/tmp/psei-uv-cache UV_LINK_MODE=copy uv sync --locked
+UV_CACHE_DIR=/tmp/psei-uv-cache UV_LINK_MODE=copy uv run --locked pytest -q
+```
+
+The first synchronization may require sandbox network approval to download
+locked packages from PyPI.
+
+If pytest output capture is broken in that environment, add `-s`:
+
+```bash
+UV_CACHE_DIR=/tmp/psei-uv-cache UV_LINK_MODE=copy uv run --locked pytest -q -s
 ```
 
 Run the narrowest relevant tests while iterating, then run the complete suite
 before handing off a change. Useful targets include:
 
 ```bash
-python -m pytest -q tests/test_lexer_and_runtime.py
-python -m pytest -q tests/test_compliance.py
-python -m pytest -q tests/test_cambridge_2027_guide.py
-python -m pytest -q tests/test_user_defined_types.py
-python -m pytest -q tests/test_test_procedures_and_functions.py
-python -m pytest -q tests/test_file_handling.py
-python -m pytest -q tests/test_oop.py
-python -m pytest -q tests/test_set_operations.py
-python -m pytest -q tests/test_regressions.py
+uv run --locked pytest -q tests/test_lexer_and_runtime.py
+uv run --locked pytest -q tests/test_compliance.py
+uv run --locked pytest -q tests/test_cambridge_2027_guide.py
+uv run --locked pytest -q tests/test_user_defined_types.py
+uv run --locked pytest -q tests/test_test_procedures_and_functions.py
+uv run --locked pytest -q tests/test_file_handling.py
+uv run --locked pytest -q tests/test_oop.py
+uv run --locked pytest -q tests/test_set_operations.py
+uv run --locked pytest -q tests/test_regressions.py
 ```
 
 CI runs the full suite on Python 3.10 through 3.14. Keep changes compatible with

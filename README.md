@@ -207,42 +207,23 @@ git clone <repo-url>
 cd psei
 ```
 
-### 2. Create a virtual environment
+### 2. Install the project environment
 
-Linux / macOS:
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-```
-
-Windows PowerShell:
-
-```powershell
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-```
-
-### 3. Install the package
-
-For normal use:
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then
+create and synchronize the project environment from the committed lock file:
 
 ```bash
-python -m pip install --upgrade pip
-python -m pip install -e .
+uv sync --locked
 ```
 
-For development:
-
-```bash
-python -m pip install --upgrade pip
-python -m pip install -e ".[dev]"
-```
+uv creates `.venv` automatically and installs the project plus the default
+`dev` dependency group. There is no need to activate the environment; prefix
+project commands with `uv run`.
 
 Python requirement:
 
 ```text
-Python >= 3.10
+Python 3.10 through 3.14
 ```
 
 ---
@@ -1477,17 +1458,37 @@ except PseudoError as error:
 
 ## Development
 
-Install development dependencies:
+Create or update the locked development environment:
 
 ```bash
-python -m pip install -e ".[dev]"
+uv sync --locked
 ```
 
 Run tests:
 
 ```bash
-python -m pytest -q
+uv run --locked pytest -q
 ```
+
+Run the CLI from the project environment:
+
+```bash
+uv run --locked pseudo run examples/passing/declare_assign_output.pseudo
+```
+
+The committed `.python-version` selects Python 3.14 for local development,
+while the package and CI remain compatible with Python 3.10 through 3.14.
+
+In the Codex workspace sandbox, the default user cache may be read-only. Use a
+temporary writable cache and copy mode when synchronizing or running commands:
+
+```bash
+UV_CACHE_DIR=/tmp/psei-uv-cache UV_LINK_MODE=copy uv sync --locked
+UV_CACHE_DIR=/tmp/psei-uv-cache UV_LINK_MODE=copy uv run --locked pytest -q
+```
+
+The first synchronization may also require sandbox network approval to download
+locked packages from PyPI.
 
 The repository includes example programs:
 

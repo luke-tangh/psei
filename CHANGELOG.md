@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Changed
+
+- Manage development environments and locked dependencies with uv
+- Run CI testing and package builds through uv
+
 ## 0.1.2 - 2026-07-31
 
 ### Added
