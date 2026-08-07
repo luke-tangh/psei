@@ -53,6 +53,7 @@ pseudo run hello.pseudo
 - [Python API usage](#python-api-usage)
 - [Pseudocode examples](#pseudocode-examples)
 - [Strict mode](#strict-mode)
+- [Static semantic analysis](#static-semantic-analysis)
 - [Cambridge 2027 compliance checking](#cambridge-2027-compliance-checking)
 - [Cambridge conformance matrix](https://github.com/luke-tangh/psei/blob/main/docs/cambridge-2027-conformance.md)
 - [Resource limits](#resource-limits)
@@ -268,6 +269,27 @@ Example:
 pseudo run examples/errors/strict_ascii_assignment.pseudo --strict
 ```
 
+### Analyze without executing
+
+Run the static semantic analyzer on a file:
+
+```bash
+pseudo analyze path/to/program.pseudo
+```
+
+Use `--strict` to require declarations before assignment, or
+`--recommendations` to report reads before explicit initialization:
+
+```bash
+pseudo analyze path/to/program.pseudo --strict --recommendations
+```
+
+Machine-readable output is available for editors and CI:
+
+```bash
+pseudo analyze path/to/program.pseudo --format json
+```
+
 ### Check Cambridge 2027 compliance
 
 Check syntax and presentation without executing the program:
@@ -306,6 +328,9 @@ If a program produces a lexical, parse or runtime error:
 
 `pseudo check` exits with status code `1` when it reports any error or warning.
 A compliant file exits with status code `0`.
+
+`pseudo analyze` exits with status code `1` for semantic errors. Warnings are
+reported but keep the exit status at `0`.
 
 ---
 
@@ -431,6 +456,30 @@ run_file("path/to/program.pseudo")
 ```
 
 `run_file()` uses a local file system rooted at the directory containing the pseudocode file.
+
+### Analyze source without executing it
+
+```python
+from psei import analyze_file, analyze_source
+
+report = analyze_source("""
+DECLARE Count : INTEGER
+Count ← "one"
+""")
+
+assert not report.valid
+assert report.diagnostics[0].code == "SEM004"
+
+file_report = analyze_file(
+    "path/to/program.pseudo",
+    strict=True,
+    recommendations=True,
+)
+```
+
+`analyze_program()` is also available when an application already has a parsed
+`Program` AST. Reports and diagnostics provide `to_dict()` for JSON-oriented
+integrations.
 
 ---
 
@@ -624,6 +673,54 @@ Both modes still perform core runtime checks, including:
 
 ---
 
+## Static semantic analysis
+
+The static analyzer parses and checks a complete program without executing
+statements, requesting input or opening pseudocode files. It resolves
+case-insensitive symbols and user-defined types before checking:
+
+- declarations, duplicate names and unknown identifiers or types
+- assignment, condition, operator and return-value types
+- array indices, record fields, object properties and pointer dereferences
+- procedure, function, method and constructor usage
+- argument count, `BYVAL` compatibility and writable `BYREF` lvalues
+- class inheritance, duplicate or private members and constructor form
+- whether every function control-flow path returns
+- statements that follow an unconditional return
+
+Normal analysis mirrors non-strict execution by allowing an assignment to
+introduce an inferred variable. `strict=True` rejects that allowance.
+`recommendations=True` additionally emits `SEM003` when a declared variable is
+read before an explicit assignment; this is advisory and is not a
+flow-sensitive definite-assignment proof.
+
+Semantic diagnostics use these stable codes:
+
+| Code | Severity | Meaning |
+|---|---|---|
+| `SEM001` | error | Undefined identifier |
+| `SEM002` | error | Duplicate declaration |
+| `SEM003` | warning | Read before explicit initialization |
+| `SEM004` | error | Incompatible assignment or constant mutation |
+| `SEM005` | error | Invalid condition or operator operand |
+| `SEM006` | error | Unknown or incorrectly used callable |
+| `SEM007` | error | Wrong argument count |
+| `SEM008` | error | Incompatible `BYVAL` argument |
+| `SEM009` | error | Invalid `BYREF` argument or address-of operand |
+| `SEM010` | error | Invalid member, index or pointer access |
+| `SEM011` | error | Function may finish without returning |
+| `SEM012` | error | `RETURN` outside a function |
+| `SEM013` | error | Incompatible return value |
+| `SEM014` | warning | Unreachable statement |
+| `SEM015` | error | Unknown or invalid type relationship |
+
+Warnings do not make a `SemanticReport` invalid. The analyzer remains
+conservative about value-dependent behavior: array bounds, division by zero,
+file state, pointer initialization and similar facts are still checked at
+runtime.
+
+---
+
 ## Cambridge 2027 compliance checking
 
 The `cambridge-2027` profile checks source code against the Cambridge
@@ -652,6 +749,7 @@ The profile currently checks:
   arrays with more than two dimensions
 - the guide's page 19 `CALL Beep` inconsistency against the formal
   `CALL Beep()` grammar in section 8.1
+- semantic diagnostics for names, types, calls, members and return paths
 
 Diagnostics have stable codes, `error` or `warning` severity, and one of four
 categories:
@@ -706,11 +804,8 @@ for diagnostic in file_report.diagnostics:
 ```
 
 `line_numbers` can be set to `"auto"`, `"present"` or `"absent"` in the
-Python API. The default is `"auto"`.
-
-The checker does not yet perform full compiler-style static analysis. It does
-not, for example, prove that every variable is declared and initialized or
-that every function path returns a value.
+Python API. The default is `"auto"`. Semantic findings retain their `SEM###`
+codes and use the `formal` compliance category.
 
 ---
 
@@ -1547,6 +1642,7 @@ psei/
 │       ├── lexer.py
 │       ├── parser.py
 │       ├── ast_nodes.py
+│       ├── analyzer.py
 │       ├── compliance.py
 │       ├── interpreter.py
 │       ├── runner.py
@@ -1574,6 +1670,7 @@ Main modules:
 | `lexer.py` | Lexical analysis |
 | `parser.py` | Parsing and AST construction |
 | `ast_nodes.py` | AST node definitions |
+| `analyzer.py` | Non-executing static semantic analysis |
 | `compliance.py` | Cambridge compliance profiles and diagnostics |
 | `interpreter.py` | AST execution |
 | `runtime/core.py` | Runtime object, scopes and limits |
@@ -1605,7 +1702,7 @@ Not fully implemented:
   as font choice and the alignment of wrapped continuation lines
 - a prescriptive camelCase/PascalCase identifier-name checker; the current
   profile checks ASCII characters and consistent case-insensitive spelling
-- full compiler-style static analysis
+- flow-sensitive definite-assignment and interprocedural data-flow analysis
 - process-level sandboxing
 
 If you execute untrusted code, consider using:

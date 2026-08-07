@@ -415,11 +415,17 @@ class Parser:
             field_name = self.consume(
                 T.IDENT,
                 "Expected field name in record TYPE",
-            ).lexeme
+            )
             self.consume(T.COLON, "Expected ':' after record field name")
             field_type = self.parse_type()
 
-            fields.append(RecordField(field_name, field_type))
+            fields.append(
+                RecordField(
+                    field_name.lexeme,
+                    field_type,
+                    SourceSpan(field_name.line, field_name.col),
+                )
+            )
             self.skip_newlines()
 
         self.consume(T.ENDTYPE, "Expected ENDTYPE")
@@ -480,10 +486,17 @@ class Parser:
                 continue
 
             if self.check(T.IDENT) and self.check_next(T.COLON):
-                field_name = self.advance().lexeme
+                field_tok = self.advance()
                 self.consume(T.COLON, "Expected ':' after class property name")
                 field_type = self.parse_type()
-                members.append(ClassFieldDecl(access, field_name, field_type))
+                members.append(
+                    ClassFieldDecl(
+                        access,
+                        field_tok.lexeme,
+                        field_type,
+                        SourceSpan(field_tok.line, field_tok.col),
+                    )
+                )
                 self.skip_newlines()
                 continue
 
@@ -500,13 +513,18 @@ class Parser:
         return ClassDecl(name, parent_name, members, initializers)
 
     def parse_class_field_after_declare(self, access: str):
-        field_name = self.consume(
+        field_tok = self.consume(
             T.IDENT,
             "Expected class property name after DECLARE",
-        ).lexeme
+        )
         self.consume(T.COLON, "Expected ':' after class property name")
         field_type = self.parse_type()
-        return ClassFieldDecl(access, field_name, field_type)
+        return ClassFieldDecl(
+            access,
+            field_tok.lexeme,
+            field_type,
+            SourceSpan(field_tok.line, field_tok.col),
+        )
 
     def parse_class_method_decl(self, access: str, kind: str):
         name_tok = self.parse_callable_name("Expected method name")
@@ -596,11 +614,18 @@ class Parser:
             elif self.match(T.BYREF):
                 passing = T.BYREF
 
-            name = self.consume(T.IDENT, "Expected parameter name").lexeme
+            name_tok = self.consume(T.IDENT, "Expected parameter name")
             self.consume(T.COLON, "Expected ':' after parameter name")
             type_spec = self.parse_type()
 
-            params.append(Param(name, type_spec, passing))
+            params.append(
+                Param(
+                    name_tok.lexeme,
+                    type_spec,
+                    passing,
+                    SourceSpan(name_tok.line, name_tok.col),
+                )
+            )
 
             if not self.match(T.COMMA):
                 break
@@ -631,7 +656,7 @@ class Parser:
             self.consume(T.COLON, "Expected ':' after CASE value")
 
             body = self.parse_case_clause_body()
-            clauses.append(CaseClause(start, end, body))
+            clauses.append(CaseClause(start, end, body, start.span))
 
             self.skip_newlines()
 
@@ -735,31 +760,38 @@ class Parser:
 
     def parse_literal_only(self):
         if self.match(T.MINUS):
+            minus_tok = self.previous()
             if self.match(T.INT_LIT):
-                return LiteralExpr(-self.previous().literal)
+                return LiteralExpr(
+                    -self.previous().literal,
+                    SourceSpan(minus_tok.line, minus_tok.col),
+                )
 
             if self.match(T.REAL_LIT):
-                return LiteralExpr(-self.previous().literal)
+                return LiteralExpr(
+                    -self.previous().literal,
+                    SourceSpan(minus_tok.line, minus_tok.col),
+                )
 
             raise self.err(self.peek(), "Expected numeric literal after '-'")
 
         if self.match(T.INT_LIT):
-            return LiteralExpr(self.previous().literal)
+            return self._literal_from_previous()
 
         if self.match(T.REAL_LIT):
-            return LiteralExpr(self.previous().literal)
+            return self._literal_from_previous()
 
         if self.match(T.STRING_LIT):
-            return LiteralExpr(self.previous().literal)
+            return self._literal_from_previous()
 
         if self.match(T.CHAR_LIT):
-            return LiteralExpr(self.previous().literal)
+            return self._literal_from_previous()
 
         if self.match(T.DATE_LIT):
-            return LiteralExpr(self.previous().literal)
+            return self._literal_from_previous()
 
         if self.match(T.BOOL_LIT):
-            return LiteralExpr(self.previous().literal)
+            return self._literal_from_previous()
 
         raise self.err(self.peek(), "CONSTANT value must be a literal")
 
@@ -771,24 +803,25 @@ class Parser:
 
     def parse_lvalue(self):
         name_tok = self.consume(T.IDENT, "Expected variable name")
-        expr = VariableExpr(name_tok.lexeme)
-        target = VarTarget(name_tok.lexeme)
+        span = SourceSpan(name_tok.line, name_tok.col)
+        expr = VariableExpr(name_tok.lexeme, span)
+        target = VarTarget(name_tok.lexeme, span)
 
         while True:
             if self.match(T.LBRACKET):
                 indices = self.parse_index_list_after_lbracket()
 
                 if isinstance(expr, VariableExpr) and isinstance(target, VarTarget):
-                    target = ArrayTarget(expr.name, indices)
+                    target = ArrayTarget(expr.name, indices, span)
                 else:
-                    target = IndexTarget(expr, indices)
+                    target = IndexTarget(expr, indices, span)
 
-                expr = ArrayAccessExpr(expr, indices)
+                expr = ArrayAccessExpr(expr, indices, span)
                 continue
 
             if self.match(T.CARET):
-                target = DerefTarget(expr)
-                expr = DerefExpr(expr)
+                target = DerefTarget(expr, span)
+                expr = DerefExpr(expr, span)
                 continue
 
             if self.check(T.DOT):
@@ -800,8 +833,8 @@ class Parser:
                     self.current = before_dot
                     break
 
-                target = FieldTarget(expr, field_name)
-                expr = FieldAccessExpr(expr, field_name)
+                target = FieldTarget(expr, field_name, span)
+                expr = FieldAccessExpr(expr, field_name, span)
                 continue
 
             break
@@ -820,52 +853,60 @@ class Parser:
 
             op = self.advance()
             right = self.parse_expression(prec + 1)
-            left = BinaryExpr(left, op, right)
+            left = BinaryExpr(left, op, right, left.span)
 
         return left
 
     def parse_unary(self):
         if self.match(T.CARET):
+            op = self.previous()
             target = self.parse_unary()
-            return AddressOfExpr(target)
+            return AddressOfExpr(target, SourceSpan(op.line, op.col))
 
         if self.match(T.MINUS) or self.match(T.NOT):
             op = self.previous()
             right = self.parse_unary()
-            return UnaryExpr(op, right)
+            return UnaryExpr(op, right, SourceSpan(op.line, op.col))
 
         return self.parse_primary()
 
     def parse_primary(self):
         if self.match(T.INT_LIT):
-            return LiteralExpr(self.previous().literal)
+            return self._literal_from_previous()
 
         if self.match(T.REAL_LIT):
-            return LiteralExpr(self.previous().literal)
+            return self._literal_from_previous()
 
         if self.match(T.STRING_LIT):
-            return LiteralExpr(self.previous().literal)
+            return self._literal_from_previous()
 
         if self.match(T.CHAR_LIT):
-            return LiteralExpr(self.previous().literal)
+            return self._literal_from_previous()
 
         if self.match(T.DATE_LIT):
-            return LiteralExpr(self.previous().literal)
+            return self._literal_from_previous()
 
         if self.match(T.BOOL_LIT):
-            return LiteralExpr(self.previous().literal)
+            return self._literal_from_previous()
 
         if self.match(T.NEW):
+            new_tok = self.previous()
             class_name = self.consume(
                 T.IDENT,
                 "Expected class name after NEW",
             ).lexeme
             self.consume(T.LPAREN, "Expected '(' after class name")
             args = self.parse_arguments_after_lparen()
-            return NewExpr(class_name, args)
+            return NewExpr(
+                class_name,
+                args,
+                SourceSpan(new_tok.line, new_tok.col),
+            )
 
         if self.match(T.SUPER):
-            expr = SuperExpr()
+            super_tok = self.previous()
+            span = SourceSpan(super_tok.line, super_tok.col)
+            expr = SuperExpr(span)
 
             while True:
                 if self.match(T.DOT):
@@ -873,14 +914,14 @@ class Parser:
 
                     if self.match(T.LPAREN):
                         args = self.parse_arguments_after_lparen()
-                        expr = MethodCallExpr(expr, member_name, args)
+                        expr = MethodCallExpr(expr, member_name, args, span)
                     else:
-                        expr = FieldAccessExpr(expr, member_name)
+                        expr = FieldAccessExpr(expr, member_name, span)
 
                     continue
 
                 if self.match(T.CARET):
-                    expr = DerefExpr(expr)
+                    expr = DerefExpr(expr, span)
                     continue
 
                 break
@@ -888,18 +929,20 @@ class Parser:
             return expr
 
         if self.match(T.IDENT):
-            name = self.previous().lexeme
+            name_tok = self.previous()
+            name = name_tok.lexeme
+            span = SourceSpan(name_tok.line, name_tok.col)
 
             if self.match(T.LPAREN):
                 args = self.parse_arguments_after_lparen()
-                expr = CallExpr(name, args)
+                expr = CallExpr(name, args, span)
             else:
-                expr = VariableExpr(name)
+                expr = VariableExpr(name, span)
 
             while True:
                 if self.match(T.LBRACKET):
                     indices = self.parse_index_list_after_lbracket()
-                    expr = ArrayAccessExpr(expr, indices)
+                    expr = ArrayAccessExpr(expr, indices, span)
                     continue
 
                 if self.match(T.DOT):
@@ -907,14 +950,14 @@ class Parser:
 
                     if self.match(T.LPAREN):
                         args = self.parse_arguments_after_lparen()
-                        expr = MethodCallExpr(expr, member_name, args)
+                        expr = MethodCallExpr(expr, member_name, args, span)
                     else:
-                        expr = FieldAccessExpr(expr, member_name)
+                        expr = FieldAccessExpr(expr, member_name, span)
 
                     continue
 
                 if self.match(T.CARET):
-                    expr = DerefExpr(expr)
+                    expr = DerefExpr(expr, span)
                     continue
 
                 break
@@ -953,6 +996,13 @@ class Parser:
 
         self.consume(T.RBRACKET, "Expected ']' after array index")
         return indices
+
+    def _literal_from_previous(self) -> LiteralExpr:
+        token = self.previous()
+        return LiteralExpr(
+            token.literal,
+            SourceSpan(token.line, token.col),
+        )
 
     def skip_newlines(self):
         while self.match(T.NEWLINE):

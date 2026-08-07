@@ -4,6 +4,7 @@ import argparse
 import json
 import sys
 
+from .analyzer import analyze_file
 from .compliance import (
     CAMBRIDGE_2027,
     LINE_NUMBER_MODES,
@@ -26,6 +27,24 @@ def main(argv=None):
     run_cmd = sub.add_parser("run", help="run a pseudocode file")
     run_cmd.add_argument("file")
     run_cmd.add_argument("--strict", action="store_true")
+
+    analyze_cmd = sub.add_parser(
+        "analyze",
+        help="statically analyze a pseudocode file without executing it",
+    )
+    analyze_cmd.add_argument("file")
+    analyze_cmd.add_argument("--strict", action="store_true")
+    analyze_cmd.add_argument(
+        "--recommendations",
+        action="store_true",
+        help="also report reads before explicit initialization",
+    )
+    analyze_cmd.add_argument(
+        "--format",
+        choices=("text", "json"),
+        default="text",
+        dest="output_format",
+    )
 
     check_cmd = sub.add_parser(
         "check",
@@ -58,6 +77,25 @@ def main(argv=None):
     try:
         if args.command == "run":
             run_file(args.file, strict=args.strict)
+
+        elif args.command == "analyze":
+            report = analyze_file(
+                args.file,
+                strict=args.strict,
+                recommendations=args.recommendations,
+            )
+
+            if args.output_format == "json":
+                payload = {"file": args.file, **report.to_dict()}
+                print(json.dumps(payload, indent=2))
+            elif report.diagnostics:
+                for diagnostic in report.diagnostics:
+                    print(diagnostic.format(args.file))
+            else:
+                print(f"{args.file}: no semantic issues found")
+
+            if not report.valid:
+                sys.exit(1)
 
         elif args.command == "check":
             report = check_file(

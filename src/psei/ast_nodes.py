@@ -146,6 +146,7 @@ class CaseClause:
     start: Any
     end: Any | None
     body: list[Any]
+    span: SourceSpan | None = None
 
 
 @dataclass
@@ -176,6 +177,7 @@ class ForStmt:
 class RecordField:
     name: str
     type_spec: Any
+    span: SourceSpan | None = None
 
 
 @dataclass
@@ -211,6 +213,7 @@ class ClassFieldDecl:
     access: str
     name: str
     type_spec: Any
+    span: SourceSpan | None = None
 
 
 @dataclass
@@ -238,6 +241,7 @@ class Param:
     name: str
     type_spec: Any
     passing: str
+    span: SourceSpan | None = None
 
 
 @dataclass
@@ -279,67 +283,79 @@ class ReturnStmt:
 @dataclass
 class VarTarget:
     name: str
+    span: SourceSpan | None = None
 
 
 @dataclass
 class ArrayTarget:
     name: str
     indices: list[Any]
+    span: SourceSpan | None = None
 
 
 @dataclass
 class IndexTarget:
     array_expr: Any
     indices: list[Any]
+    span: SourceSpan | None = None
 
 
 @dataclass
 class FieldTarget:
     record_expr: Any
     field_name: str
+    span: SourceSpan | None = None
 
 
 @dataclass
 class DerefTarget:
     pointer_expr: Any
+    span: SourceSpan | None = None
 
 
 @dataclass
 class LiteralExpr:
     value: Any
+    span: SourceSpan | None = None
 
 
 @dataclass
 class VariableExpr:
     name: str
+    span: SourceSpan | None = None
 
 
 @dataclass
 class ArrayAccessExpr:
     array_expr: Any
     indices: list[Any]
+    span: SourceSpan | None = None
 
 
 @dataclass
 class FieldAccessExpr:
     record_expr: Any
     field_name: str
+    span: SourceSpan | None = None
 
 
 @dataclass
 class AddressOfExpr:
     target_expr: Any
+    span: SourceSpan | None = None
 
 
 @dataclass
 class DerefExpr:
     pointer_expr: Any
+    span: SourceSpan | None = None
 
 
 @dataclass
 class UnaryExpr:
     op: Any
     right: Any
+    span: SourceSpan | None = None
 
 
 @dataclass
@@ -347,12 +363,14 @@ class BinaryExpr:
     left: Any
     op: Any
     right: Any
+    span: SourceSpan | None = None
 
 
 @dataclass
 class CallExpr:
     name: str
     args: list[Any]
+    span: SourceSpan | None = None
 
 
 @dataclass
@@ -360,14 +378,16 @@ class MethodCallExpr:
     object_expr: Any
     method_name: str
     args: list[Any]
+    span: SourceSpan | None = None
 
 
 @dataclass
 class NewExpr:
     class_name: str
     args: list[Any]
+    span: SourceSpan | None = None
 
 
 @dataclass
 class SuperExpr:
-    pass
+    span: SourceSpan | None = None

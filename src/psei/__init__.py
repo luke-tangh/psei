@@ -1,3 +1,11 @@
+from .analyzer import (
+    SEMANTIC_CODES,
+    SemanticDiagnostic,
+    SemanticReport,
+    analyze_file,
+    analyze_program,
+    analyze_source,
+)
 from .compliance import (
     CAMBRIDGE_2027,
     COMPLIANCE_CATEGORIES,
@@ -15,6 +23,12 @@ __all__ = [
     "ComplianceDiagnostic",
     "ComplianceReport",
     "Runtime",
+    "SEMANTIC_CODES",
+    "SemanticDiagnostic",
+    "SemanticReport",
+    "analyze_file",
+    "analyze_program",
+    "analyze_source",
     "check_file",
     "check_source",
     "run_source",

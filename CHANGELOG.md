@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## 0.2.0 - 2026-08-07
+
+### Added
+
+- Add a non-executing static semantic analyzer with stable `SEM001` through
+  `SEM015` diagnostics and source locations
+- Add public `analyze_source()`, `analyze_program()` and `analyze_file()` APIs
+- Add `pseudo analyze`, including strict, recommendation and JSON modes
+- Check declarations, types, operators, calls, `BYREF` lvalues, members,
+  inheritance, return paths and unreachable statements
+
+### Changed
+
+- Include semantic diagnostics in the Cambridge 2027-2029 compliance checker
+- Preserve source spans for expressions, lvalues, parameters and type members
+
 ## 0.1.3 - 2026-08-07
 
 ### Added

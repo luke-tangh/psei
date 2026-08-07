@@ -44,6 +44,18 @@ ENDIF
     assert report.diagnostics == ()
 
 
+def test_semantic_errors_are_included_without_executing_source():
+    report = check_source(
+        "DECLARE Count : INTEGER\n"
+        'Count ← "one"\n'
+        "OUTPUT Missing\n"
+    )
+
+    assert diagnostic_codes(report) == ["SEM004", "SEM001"]
+    assert report.has_errors
+    assert all(item.category == "formal" for item in report.diagnostics)
+
+
 def test_keyword_case_and_indentation_are_reported():
     report = check_source(
         """

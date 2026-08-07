@@ -6,6 +6,7 @@ from dataclasses import asdict, dataclass, fields, is_dataclass
 from pathlib import Path
 from typing import Any, Iterator
 
+from .analyzer import analyze_program
 from .ast_nodes import (
     ArrayType,
     CaseStmt,
@@ -215,6 +216,7 @@ def check_source(
             diagnostics.append(_diagnostic_from_error(error, source))
         else:
             diagnostics.extend(_check_ast_boundaries(program))
+            diagnostics.extend(_check_semantics(program))
 
     return ComplianceReport(
         profile=profile,
@@ -222,6 +224,21 @@ def check_source(
         normalized_source=normalized_source,
         line_numbers_detected=numbered,
     )
+
+
+def _check_semantics(program: Program) -> list[ComplianceDiagnostic]:
+    report = analyze_program(program, strict=False, recommendations=False)
+    return [
+        ComplianceDiagnostic(
+            code=item.code,
+            severity=item.severity,
+            message=item.message,
+            line=item.line,
+            col=item.col,
+            category="formal",
+        )
+        for item in report.diagnostics
+    ]
 
 
 def _prepare_line_numbers(
