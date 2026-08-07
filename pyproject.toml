@@ -1,6 +1,6 @@
 [project]
 name = "psei"
-version = "0.1.2"
+version = "0.1.3"
 description = "Minimal Cambridge-style pseudocode interpreter"
 readme = "README.md"
 authors = [
@@ -44,6 +44,9 @@ psei = "psei.cli:main"
 requires = ["uv_build>=0.12.0,<0.13.0"]
 build-backend = "uv_build"
 
+[tool.uv.build-backend]
+source-include = ["docs/**"]
+
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
@@ -52,5 +55,14 @@ testpaths = ["tests"]
 dev = [
     "build>=1.5.0",
     "pytest>=9.1.1",
+    "pytest-cov>=7.0.0",
     "twine>=7.0.0",
 ]
+
+[tool.coverage.run]
+branch = true
+source = ["psei"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true

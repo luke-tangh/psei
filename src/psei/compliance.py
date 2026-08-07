@@ -2,9 +2,18 @@ from __future__ import annotations
 
 import ast
 import re
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields, is_dataclass
 from pathlib import Path
+from typing import Any, Iterator
 
+from .ast_nodes import (
+    ArrayType,
+    CaseStmt,
+    OutputStmt,
+    Program,
+    SourceSpan,
+    VariableExpr,
+)
 from .errors import LexError, ParseError
 from .lexer import Lexer
 from .parser import Parser
@@ -14,6 +23,12 @@ from .tokens import KEYWORDS, T, Token
 CAMBRIDGE_2027 = "cambridge-2027"
 SUPPORTED_PROFILES = (CAMBRIDGE_2027,)
 LINE_NUMBER_MODES = ("auto", "present", "absent")
+COMPLIANCE_CATEGORIES = (
+    "formal",
+    "recommendation",
+    "compatibility",
+    "extension",
+)
 
 _KEYWORD_TYPES = frozenset(KEYWORDS.values())
 _STANDARD_CALLABLES = frozenset(
@@ -93,6 +108,7 @@ class ComplianceDiagnostic:
     message: str
     line: int
     col: int
+    category: str = "formal"
 
     def format(self, filename: str | Path | None = None) -> str:
         location = f"{self.line}:{self.col}"
@@ -102,7 +118,7 @@ class ComplianceDiagnostic:
 
         return (
             f"{location}: {self.severity} {self.code}: "
-            f"{self.message}"
+            f"[{self.category}] {self.message}"
         )
 
     def to_dict(self) -> dict[str, str | int]:
@@ -194,9 +210,11 @@ def check_source(
         diagnostics.append(_diagnostic_from_error(error, source))
     else:
         try:
-            Parser(strict_tokens).parse_program()
+            program = Parser(strict_tokens).parse_program()
         except ParseError as error:
             diagnostics.append(_diagnostic_from_error(error, source))
+        else:
+            diagnostics.extend(_check_ast_boundaries(program))
 
     return ComplianceReport(
         profile=profile,
@@ -355,6 +373,7 @@ def _check_indentation(source: str) -> list[ComplianceDiagnostic]:
                 ComplianceDiagnostic(
                     code="C2027-I001",
                     severity="warning",
+                    category="recommendation",
                     message="use spaces instead of tabs for indentation",
                     line=line_number,
                     col=leading.index("\t") + 1,
@@ -388,6 +407,7 @@ def _check_indentation(source: str) -> list[ComplianceDiagnostic]:
                 ComplianceDiagnostic(
                     code="C2027-I002",
                     severity="warning",
+                    category="recommendation",
                     message=(
                         f"expected {expected_spaces} leading space(s), "
                         f"found {actual_spaces}"
@@ -618,6 +638,7 @@ def _check_extensions(
             ComplianceDiagnostic(
                 code="C2027-X001",
                 severity="warning",
+                category="extension",
                 message=(
                     f"{name} is a documented psei extension, "
                     "not a standard operation defined by the Cambridge guide"
@@ -654,6 +675,7 @@ def _normalize_bare_calls(
             ComplianceDiagnostic(
                 code="C2027-C001",
                 severity="warning",
+                category="compatibility",
                 message=(
                     f"use CALL {name}(); section 8.1 requires parentheses, "
                     "although the page 19 CASE example omits them"
@@ -675,6 +697,92 @@ def _normalize_bare_calls(
     return "".join(normalized_lines), diagnostics
 
 
+def _check_ast_boundaries(program: Program) -> list[ComplianceDiagnostic]:
+    diagnostics = []
+
+    for node, span in _walk_ast(program):
+        if span is None:
+            continue
+
+        if isinstance(node, OutputStmt) and not node.exprs:
+            diagnostics.append(
+                _compatibility_diagnostic(
+                    "C2027-X002",
+                    (
+                        "OUTPUT without a value is accepted by psei but the "
+                        "Cambridge format requires one or more values"
+                    ),
+                    span,
+                )
+            )
+
+        elif (
+            isinstance(node, CaseStmt)
+            and not isinstance(node.selector, VariableExpr)
+        ):
+            diagnostics.append(
+                _compatibility_diagnostic(
+                    "C2027-X003",
+                    (
+                        "CASE expressions are accepted by psei but the "
+                        "Cambridge format requires CASE OF <identifier>"
+                    ),
+                    span,
+                )
+            )
+
+        elif isinstance(node, ArrayType) and len(node.bounds) > 2:
+            diagnostics.append(
+                _compatibility_diagnostic(
+                    "C2027-X004",
+                    (
+                        "arrays with more than two dimensions are accepted by "
+                        "psei but are outside the one- and two-dimensional "
+                        "array formats defined by the Cambridge guide"
+                    ),
+                    span,
+                )
+            )
+
+    return diagnostics
+
+
+def _walk_ast(
+    node: Any,
+    inherited_span: SourceSpan | None = None,
+) -> Iterator[tuple[Any, SourceSpan | None]]:
+    if isinstance(node, (list, tuple)):
+        for item in node:
+            yield from _walk_ast(item, inherited_span)
+        return
+
+    if not is_dataclass(node):
+        return
+
+    span = getattr(node, "span", None) or inherited_span
+    yield node, span
+
+    for field in fields(node):
+        if field.name == "span":
+            continue
+        yield from _walk_ast(getattr(node, field.name), span)
+
+
+def _compatibility_diagnostic(
+    code: str,
+    message: str,
+    span: SourceSpan,
+) -> ComplianceDiagnostic:
+    return ComplianceDiagnostic(
+        code=code,
+        severity="warning",
+        category="compatibility",
+        message=message,
+        line=span.line,
+        col=span.col,
+    )
+
+
 def _diagnostic_from_error(
     error: LexError | ParseError,
     source: str,
@@ -692,12 +800,14 @@ def _diagnostic_from_error(
         message = match.group("message")
 
     code = "C2027-P001"
+    category = "formal"
 
     if isinstance(error, LexError):
         code = "C2027-L001"
 
         if "Use ← for assignment" in message:
             code = "C2027-A001"
+            category = "compatibility"
 
         unexpected = re.fullmatch(r"Unexpected character (?P<char>.+)", message)
 
@@ -717,6 +827,7 @@ def _diagnostic_from_error(
     return ComplianceDiagnostic(
         code=code,
         severity="error",
+        category=category,
         message=message,
         line=line,
         col=col,
@@ -730,6 +841,7 @@ def _sort_and_deduplicate(
         (
             item.code,
             item.severity,
+            item.category,
             item.message,
             item.line,
             item.col,

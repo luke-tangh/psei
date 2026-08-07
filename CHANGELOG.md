@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 0.1.3 - 2026-08-07
+
+### Added
+
+- Add a Cambridge 2027-2029 conformance matrix separating formal syntax,
+  recommendations, compatibility allowances and `psei` extensions
+- Add diagnostic categories to text and JSON compliance reports
+- Report blank `OUTPUT`, expression `CASE` selectors and arrays with more than
+  two dimensions as non-Cambridge compatibility allowances
+- Add an 80% branch-coverage baseline to CI
+
 ### Changed
 
 - Manage development environments and locked dependencies with uv

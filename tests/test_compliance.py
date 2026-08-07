@@ -5,6 +5,7 @@ import pytest
 from psei.cli import main
 from psei.compliance import (
     CAMBRIDGE_2027,
+    COMPLIANCE_CATEGORIES,
     ComplianceDiagnostic,
     check_file,
     check_source,
@@ -13,6 +14,15 @@ from psei.compliance import (
 
 def diagnostic_codes(report):
     return [item.code for item in report.diagnostics]
+
+
+def test_compliance_categories_are_stable():
+    assert COMPLIANCE_CATEGORIES == (
+        "formal",
+        "recommendation",
+        "compatibility",
+        "extension",
+    )
 
 
 def test_cambridge_2027_compliant_source():
@@ -65,6 +75,7 @@ def test_tabs_are_reported_even_when_their_width_matches():
 
     assert "C2027-I001" in diagnostic_codes(report)
     assert "C2027-I002" not in diagnostic_codes(report)
+    assert report.diagnostics[0].category == "recommendation"
 
 
 def test_strings_and_comments_do_not_trigger_keyword_case_warnings():
@@ -129,6 +140,7 @@ OUTPUT CARDINALITY(Values)
 
     assert not report.has_errors
     assert extension.line == 3
+    assert extension.category == "extension"
     assert "psei extension" in extension.message
 
 
@@ -161,7 +173,45 @@ ENDCASE
 
     assert diagnostic_codes(report) == ["C2027-C001"]
     assert not report.has_errors
+    assert report.diagnostics[0].category == "compatibility"
     assert "section 8.1" in report.diagnostics[0].message
+
+
+@pytest.mark.parametrize(
+    ("source", "code"),
+    [
+        ("OUTPUT\n", "C2027-X002"),
+        (
+            "CASE OF 1 + 1\n"
+            "   2 : OUTPUT \"two\"\n"
+            "ENDCASE\n",
+            "C2027-X003",
+        ),
+        (
+            "DECLARE Cube : ARRAY[1:2,1:2,1:2] OF INTEGER\n",
+            "C2027-X004",
+        ),
+    ],
+)
+def test_psei_compatibility_allowances_are_not_cambridge_syntax(source, code):
+    report = check_source(source)
+
+    assert diagnostic_codes(report) == [code]
+    assert not report.compliant
+    assert not report.has_errors
+    assert report.diagnostics[0].category == "compatibility"
+
+
+def test_two_dimensional_array_and_identifier_case_selector_are_compliant():
+    report = check_source(
+        "DECLARE Grid : ARRAY[1:2,1:2] OF INTEGER\n"
+        "DECLARE Choice : INTEGER\n"
+        "CASE OF Choice\n"
+        "   1 : OUTPUT Grid[1,1]\n"
+        "ENDCASE\n"
+    )
+
+    assert report.compliant
 
 
 def test_case_clause_statements_use_an_additional_indent_level():
@@ -300,3 +350,4 @@ def test_cli_check_json_output(tmp_path, capsys):
     assert payload["profile"] == CAMBRIDGE_2027
     assert payload["compliant"] is False
     assert payload["diagnostics"][0]["code"] == "C2027-A001"
+    assert payload["diagnostics"][0]["category"] == "compatibility"

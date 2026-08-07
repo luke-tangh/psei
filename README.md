@@ -54,6 +54,7 @@ pseudo run hello.pseudo
 - [Pseudocode examples](#pseudocode-examples)
 - [Strict mode](#strict-mode)
 - [Cambridge 2027 compliance checking](#cambridge-2027-compliance-checking)
+- [Cambridge conformance matrix](https://github.com/luke-tangh/psei/blob/main/docs/cambridge-2027-conformance.md)
 - [Resource limits](#resource-limits)
 - [File handling](#file-handling)
 - [User-defined types](#user-defined-types)
@@ -629,6 +630,11 @@ The `cambridge-2027` profile checks source code against the Cambridge
 International AS & A Level Computer Science 9618 pseudocode guide for
 examinations in 2027, 2028 and 2029.
 
+The detailed
+[Cambridge 2027-2029 conformance matrix](https://github.com/luke-tangh/psei/blob/main/docs/cambridge-2027-conformance.md)
+marks each behavior as formal syntax, a recommendation, a compatibility
+allowance or a documented `psei` extension.
+
 It performs static checking only. It parses the source but never executes it,
 reads pseudocode input or opens pseudocode files.
 
@@ -642,28 +648,43 @@ The profile currently checks:
 - lexer and parser compatibility with the formal guide syntax
 - examination line numbers, including optional preprocessing before parsing
 - uses of documented `psei` operations that are not defined by the guide
+- normal-mode allowances for blank `OUTPUT`, expression `CASE` selectors and
+  arrays with more than two dimensions
 - the guide's page 19 `CALL Beep` inconsistency against the formal
   `CALL Beep()` grammar in section 8.1
 
-Diagnostics have stable codes and either `error` or `warning` severity:
+Diagnostics have stable codes, `error` or `warning` severity, and one of four
+categories:
 
-| Code | Meaning |
+| Category | Meaning |
 |---|---|
-| `C2027-A001` | Non-Cambridge assignment operator |
-| `C2027-C001` | Procedure call missing formal parentheses |
-| `C2027-I001` | Tab used for indentation |
-| `C2027-I002` | Structural indentation differs from three-space nesting |
-| `C2027-ID001` | Inconsistent case-insensitive identifier spelling |
-| `C2027-ID002` | Non-ASCII identifier character |
-| `C2027-K001` | Keyword or standard function name is not upper-case |
-| `C2027-L001` | Other lexical error |
-| `C2027-N001` | Line numbers do not increase |
-| `C2027-P001` | Parser error against the formal syntax |
-| `C2027-X001` | Documented `psei` extension outside the guide |
+| `formal` | An explicit Cambridge syntax or presentation rule |
+| `recommendation` | Guidance described as usual or good practice |
+| `compatibility` | Syntax accepted for normal `psei` compatibility but not the formal Cambridge format |
+| `extension` | A documented `psei` feature outside the guide |
+
+| Code | Category | Meaning |
+|---|---|---|
+| `C2027-A001` | `compatibility` | Non-Cambridge assignment operator |
+| `C2027-C001` | `compatibility` | Procedure call missing formal parentheses |
+| `C2027-I001` | `recommendation` | Tab used for indentation |
+| `C2027-I002` | `recommendation` | Structural indentation differs from three-space nesting |
+| `C2027-ID001` | `formal` | Inconsistent case-insensitive identifier spelling |
+| `C2027-ID002` | `formal` | Non-ASCII identifier character |
+| `C2027-K001` | `formal` | Keyword or standard function name is not upper-case |
+| `C2027-L001` | `formal` | Other lexical error |
+| `C2027-N001` | `formal` | Line numbers do not increase |
+| `C2027-P001` | `formal` | Parser error against the formal syntax |
+| `C2027-X001` | `extension` | Documented `psei` operation outside the guide |
+| `C2027-X002` | `compatibility` | `OUTPUT` has no value |
+| `C2027-X003` | `compatibility` | `CASE OF` uses an expression instead of an identifier |
+| `C2027-X004` | `compatibility` | Array declaration has more than two dimensions |
 
 Warnings are compliance failures but do not imply that normal, non-strict
 execution would fail. For example, normal execution accepts lower-case
-keywords while the compliance profile reports them.
+keywords while the compliance profile reports them. Text diagnostics include
+the category in square brackets, and JSON diagnostics expose it as the
+`category` field.
 
 Use the checker from Python:
 
@@ -1468,6 +1489,13 @@ Run tests:
 
 ```bash
 uv run --locked pytest -q
+```
+
+Run the coverage baseline used by CI:
+
+```bash
+uv run --locked pytest --cov=psei --cov-branch --cov-report=term-missing \
+  --cov-fail-under=80
 ```
 
 Run the CLI from the project environment:

@@ -1,5 +1,6 @@
 from .compliance import (
     CAMBRIDGE_2027,
+    COMPLIANCE_CATEGORIES,
     ComplianceDiagnostic,
     ComplianceReport,
     check_file,
@@ -10,6 +11,7 @@ from .runtime import Runtime
 
 __all__ = [
     "CAMBRIDGE_2027",
+    "COMPLIANCE_CATEGORIES",
     "ComplianceDiagnostic",
     "ComplianceReport",
     "Runtime",
