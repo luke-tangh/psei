@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 0.2.1 - 2026-08-08
+
+### Fixed
+
+- Validate versioned random-file addresses, type descriptions and values when
+  loading persisted JSON
+- Reject malformed record fields and incomplete, duplicated, out-of-bounds or
+  incorrectly typed serialized array elements
+- Report malformed random files with `PseudoRuntimeError` instead of leaking
+  incidental Python conversion and lookup errors
+- Reject non-finite `REAL` values before writing non-standard JSON
+
 ## 0.2.0 - 2026-08-07
 
 ### Added

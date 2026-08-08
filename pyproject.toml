@@ -1,6 +1,6 @@
 [project]
 name = "psei"
-version = "0.2.0"
+version = "0.2.1"
 description = "Minimal Cambridge-style pseudocode interpreter"
 readme = "README.md"
 authors = [

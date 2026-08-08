@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from psei.errors import PseudoRuntimeError
@@ -146,6 +148,44 @@ CLOSEFILE "Data.dat"
 
     with pytest.raises(PseudoRuntimeError, match="cannot be opened for READ"):
         run_source('OPENFILE "Data.dat" FOR READ', runtime)
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        {"format": "psei-random-v1", "records": {"invalid": {}}},
+        {
+            "format": "psei-random-v1",
+            "records": {"0": {"kind": "integer"}},
+        },
+        {
+            "format": "psei-random-v1",
+            "records": {
+                "0": {
+                    "kind": "array",
+                    "type": {
+                        "kind": "array",
+                        "bounds": [[1, 2]],
+                        "element_type": {
+                            "kind": "basic",
+                            "name": "INTEGER",
+                        },
+                    },
+                    "data": [],
+                },
+            },
+        },
+    ],
+)
+def test_local_random_file_rejects_malformed_persisted_data(tmp_path, data):
+    path = tmp_path / "Broken.dat"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    file_system = LocalFileSystem(tmp_path)
+
+    with pytest.raises(PseudoRuntimeError):
+        file_system.open_file("Broken.dat", T.RANDOM)
+
+    assert file_system.open_files == {}
 
 
 def test_readfile_target_must_be_string():

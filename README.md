@@ -975,6 +975,11 @@ Random files cannot store:
 - object instances
 - pointer values
 
+Local random files use the deterministic, versioned `psei-random-v1` JSON
+format. Persisted addresses, types, record fields, array elements and scalar
+values are validated when a file is opened; malformed data raises
+`PseudoRuntimeError`. Non-finite `REAL` values cannot be persisted.
+
 ---
 
 ## User-defined types
